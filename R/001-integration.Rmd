@@ -14,7 +14,7 @@ Merge datasets from different samples while correcting for batch effects.
 
 # Steps
 1. Identify batch effects using exploratory data analysis.
-2. Apply batch correction methods (Harmony, Seurat CCA, etc.).
+2. Apply batch correction methods .
 3. Assess integration effectiveness using clustering and visualization.
 
 # Setup
@@ -66,7 +66,7 @@ seurat.list <- readRDS(file.path(dir.main, "results/001_preprocessing/rdata/seur
 ```
 
 
-# Integration
+# Integration by Seurat rPCA
 
 
 ```{r fig.width=10, fig.height=6}
@@ -147,6 +147,7 @@ save_plot(p, filename = file.path(dir.results, "figures/umap_scDblFinder"),  wid
 
 ```
 
+### Check cluster qualities
 
 ```{r fig.width=10, fig.height=4, warning=F, message=F}
 
@@ -172,6 +173,7 @@ Dim_Plot(object = obj, group.by = "scDblFinder.class", label.show = F, label.siz
 
 ```
 
+### Check cluster qualities
 
 ```{r fig.width=10, fig.height=4, warning=F, message=F}
 
@@ -206,130 +208,6 @@ p <- Stacked_VlnPlot(obj, features = c("nFeature_RNA", "nCount_RNA", "percent.mi
                 angle.x = 90, pt.size = 0.1, base.size = 10, legend.position = "none")
 p
 save_plot(p, filename = file.path(dir.results, "figures/violin_cluster20_filt"),  width = 8, height = 4, formats = c("pdf","png"))
-
-```
-
-
-### Highlight_Each_Cluster
-
-```{r fig.width=8, fig.height=6}
-
-p <- Dim_Plot(object = obj, group.by = "seurat_clusters", label.show = T, legend = F, theme.bw = F, figure.plot = T, label.size = 4, pt.size = 0.5) 
-p
-save_plot(p, filename = file.path(dir.results, "figures/umap_seurat"),  width = 8, height = 6, formats = c("pdf","png"))
-
-```
-
-
-```{r fig.width=14, fig.height=18}
-
-invisible(gc())
-
-p <- Highlight_Each_Cluster(
-  object = obj,
-  group.by = "seurat_clusters", 
-  highlight.size = 0.5,
-  ncol = 5,  
-  fontsize = 14,
-  custom.colors = NULL
-)
-
-p
-save_plot(p, filename = file.path(dir.results, "figures/Highlight_Each_seurat_clusters"),  width = 14, height = 18, formats = c("pdf","png"))
-
-```
-
-
-
-# Add demuxafy results
-
-```{r fig.width=8, fig.height=6, warning=F, message=F}
-
-# From vireo donor match
-#FN_S1256: S1=d0, S2=d2, S5=d3, S6=d1
-#FN_3478: S3=d1, S4=d3, S7=d2,S8=d0
-
-# Souporcell
-# FN_S1256: 
-# 0 = S2 = donor1, 
-# 1 = S6 = donor3, 
-# 2 = S1 = donor2, 
-# 3 = S5 = donor0
-# FN_S3478: 
-# 0 = S3 = donor2, 
-# 1 = S7 = donor0, 
-# 2 = S8 = donor1, 
-# 3 = S4 = donor3
-
-obj@meta.data[['souporcell']] <- paste0(obj@meta.data$Souporcell_Individual_Assignment,"_", obj@meta.data[,"orig.ident"])  
-
-obj@meta.data$sample <- NULL
-obj@meta.data[obj@meta.data$souporcell %in% c("donor0_FN_S1256"),"sample"] <-"S5"
-obj@meta.data[obj@meta.data$souporcell %in% c("donor1_FN_S1256"),"sample"] <-"S2"
-obj@meta.data[obj@meta.data$souporcell %in% c("donor2_FN_S1256"),"sample"] <-"S1"
-obj@meta.data[obj@meta.data$souporcell %in% c("donor3_FN_S1256"),"sample"] <-"S6"
-
-obj@meta.data[obj@meta.data$souporcell %in% c("donor0_FN_S3478"),"sample"] <-"S7"
-obj@meta.data[obj@meta.data$souporcell %in% c("donor1_FN_S3478"),"sample"] <-"S8"
-obj@meta.data[obj@meta.data$souporcell %in% c("donor2_FN_S3478"),"sample"] <-"S3"
-obj@meta.data[obj@meta.data$souporcell %in% c("donor3_FN_S3478"),"sample"] <-"S4"
-
-
-obj[["bmi_donor"]]=""
-obj@meta.data[obj@meta.data$sample %in% c("S1"),"bmi_donor"] <-"S1-PCW7" 
-obj@meta.data[obj@meta.data$sample %in% c("S2"),"bmi_donor"] <-"S2-PCW8"
-obj@meta.data[obj@meta.data$sample %in% c("S3"),"bmi_donor"] <-"S3-PCW10"
-obj@meta.data[obj@meta.data$sample %in% c("S5"),"bmi_donor"] <-"S5-PCW10"
-obj@meta.data[obj@meta.data$sample %in% c("S4"),"bmi_donor"] <-"S4-OB-PCW10.5"
-obj@meta.data[obj@meta.data$sample %in% c("S6"),"bmi_donor"] <-"S6-OB-PCW12"
-obj@meta.data[obj@meta.data$sample %in% c("S7"),"bmi_donor"] <-"S7-PCW12"
-obj@meta.data[obj@meta.data$sample %in% c("S8"),"bmi_donor"] <-"S8-PCW12"
-
-obj[["donor"]]=""
-obj@meta.data[obj@meta.data$sample %in% c("S1"),"donor"] <-"S1-PCW7" 
-obj@meta.data[obj@meta.data$sample %in% c("S2"),"donor"] <-"S2-PCW8"
-obj@meta.data[obj@meta.data$sample %in% c("S3"),"donor"] <-"S3-PCW10"
-obj@meta.data[obj@meta.data$sample %in% c("S5"),"donor"] <-"S5-PCW10"
-obj@meta.data[obj@meta.data$sample %in% c("S4"),"donor"] <-"S4-PCW10.5"
-obj@meta.data[obj@meta.data$sample %in% c("S6"),"donor"] <-"S6-PCW12"
-obj@meta.data[obj@meta.data$sample %in% c("S7"),"donor"] <-"S7-PCW12"
-obj@meta.data[obj@meta.data$sample %in% c("S8"),"donor"] <-"S8-PCW12"
-
-
-obj[["PCW"]]=""
-obj@meta.data[obj@meta.data$sample %in% c("S1"),"PCW"] <-"PCW7" 
-obj@meta.data[obj@meta.data$sample %in% c("S2"),"PCW"] <-"PCW8"
-obj@meta.data[obj@meta.data$sample %in% c("S3", "S4","S5"),"PCW"] <-"PCW10"
-obj@meta.data[obj@meta.data$sample %in% c("S6", "S7","S8"),"PCW"] <-"PCW12"
-
-obj[["age"]]=""
-obj@meta.data[obj@meta.data$sample %in% c("S1"),"age"] <-"7" 
-obj@meta.data[obj@meta.data$sample %in% c("S2"),"age"] <-"8"
-obj@meta.data[obj@meta.data$sample %in% c("S3", "S4","S5"),"age"] <-"10"
-obj@meta.data[obj@meta.data$sample %in% c("S6", "S7","S8"),"age"] <-"12"
-
-
-obj[["BMI"]]=""
-obj@meta.data[obj@meta.data$sample %in% c("S1"),"BMI"] <-"PCW7" 
-obj@meta.data[obj@meta.data$sample %in% c("S2"),"BMI"] <-"PCW8"
-obj@meta.data[obj@meta.data$sample %in% c("S3","S5"),"BMI"] <-"PCW10"
-obj@meta.data[obj@meta.data$sample %in% c("S4"),"BMI"] <-"OB-PCW10.5"
-obj@meta.data[obj@meta.data$sample %in% c("S6"),"BMI"] <-"OB-PCW12"
-obj@meta.data[obj@meta.data$sample %in% c("S7","S8"),"BMI"] <-"PCW12"
-
-obj[["group"]]=""
-obj@meta.data[obj@meta.data$sample %in% c("S1","S2"),"group"] <-"NORMAL-7-8" 
-obj@meta.data[obj@meta.data$sample %in% c("S3","S5","S7","S8"),"group"] <-"NORMAL-10-12"
-obj@meta.data[obj@meta.data$sample %in% c("S4","S6"),"group"] <-"OBESE-10-12"
-
-obj[["sex"]]=""
-obj@meta.data[obj@meta.data$sample %in% c("S2","S5","S7"),"sex"] <- "F" 
-obj@meta.data[obj@meta.data$sample %in% c("S1","S3","S4","S6","S8"),"sex"] <- "M"
-
-obj@meta.data$donor_order <- factor(obj@meta.data$donor, levels = c("S1-PCW7","S2-PCW8","S3-PCW10","S5-PCW10","S4-PCW10.5","S6-PCW12", "S7-PCW12","S8-PCW12"))
-obj@meta.data$BMI_order <- factor(obj@meta.data$BMI, levels = c("PCW7","PCW8","PCW10","OB-PCW10.5", "PCW12", "OB-PCW12"))
-obj@meta.data$PCW_order <- factor(obj@meta.data$PCW, levels = c("PCW7","PCW8","PCW10", "PCW12"))
-obj@meta.data$group_order <- factor(obj@meta.data$group, levels = c("NORMAL-7-8","NORMAL-10-12","OBESE-10-12"))
 
 ```
 
