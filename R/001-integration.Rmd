@@ -9,14 +9,6 @@ output:
 date: 'Last update: `r format(Sys.time())`'
 ---
 
-# Goal
-Merge datasets from different samples while correcting for batch effects.
-
-# Steps
-1. Identify batch effects using exploratory data analysis.
-2. Apply batch correction methods .
-3. Assess integration effectiveness using clustering and visualization.
-
 # Setup
 
 ```{r setup, include=TRUE, message=FALSE, warning=FALSE}
@@ -179,35 +171,6 @@ Dim_Plot(object = obj, group.by = "scDblFinder.class", label.show = F, label.siz
 
 Stacked_VlnPlot(obj, features = c("nFeature_RNA", "nCount_RNA", "percent.mito"), group.by = "seurat_clusters", 
                 angle.x = 90, pt.size = 0.1, base.size = 10, legend.position = "none")
-
-```
-
-
-### Clean cluster 20
-
-```{r fig.width=4, fig.height=4}
-
-Idents(obj) <- "seurat_clusters"
-C20 <- subset(obj, idents = c(20))
-Dim_Plot(object = C20, group.by = "seurat_clusters")
-C20 <- subset(C20, subset = nFeature_RNA > 1000 & nFeature_RNA < 3000 & nCount_RNA > 1000 & nCount_RNA < 5000 & percent.mito < 1)
-Stacked_VlnPlot(C20, features = c("nFeature_RNA", "nCount_RNA", "percent.mito"), group.by = "seurat_clusters", 
-                angle.x = 90, pt.size = 0.1, base.size = 10, legend.position = "none")
-
-```
-
-
-```{r fig.width=8, fig.height=4}
-
-#sub <- Run_Quality_Control(seurat_input = obj, min_features = 1000, min_counts = 1000, filter_method = "MAD", MAD = 5)
-sub <- subset(obj, idents = 20, invert = T)
-Dim_Plot(object = sub, group.by = "seurat_clusters", label.show = T, figure.plot = T, legend = F)
-obj <- subset(obj, cells = c(WhichCells(sub), WhichCells(C20)))
-rm(sub, C20)
-p <- Stacked_VlnPlot(obj, features = c("nFeature_RNA", "nCount_RNA", "percent.mito"), group.by = "seurat_clusters", 
-                angle.x = 90, pt.size = 0.1, base.size = 10, legend.position = "none")
-p
-save_plot(p, filename = file.path(dir.results, "figures/violin_cluster20_filt"),  width = 8, height = 4, formats = c("pdf","png"))
 
 ```
 
