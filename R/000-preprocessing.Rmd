@@ -9,14 +9,6 @@ output:
 date: 'Last update: `r format(Sys.time())`'
 ---
 
-# Goal
-Perform quality control of raw sequencing data, filtering out low-quality cells and genes, and normalization.
-
-# Steps
-1. Filter low-quality reads and cells.
-2. Normalize and scale gene expression data.
-3. Visualize quality control metrics.
-
 # Setup
 
 ```{r setup, include=TRUE, message=FALSE, warning=FALSE}
