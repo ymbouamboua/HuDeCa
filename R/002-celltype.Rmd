@@ -1,0 +1,175 @@
+---
+title: "10x Hudeca Nasal: Cell type annotation"
+author: "Mbouamboua Yvon <yvon.mbouamboua@inserm.fr>"
+output:
+    html_document:
+       toc: true
+       toc_float: true
+       number_sections: true
+date: 'Last update: `r format(Sys.time())`'
+---
+
+# Setup
+
+```{r setup, include=TRUE, message=FALSE, warning=FALSE}
+
+invisible(gc())
+knitr::opts_chunk$set(warning = FALSE, results = TRUE, message = FALSE, comment = "")
+dir.main <- "/Users/yvon.mbouamboua/Documents/projects/singlecell/hudeca_nasal"
+dir.results <- file.path(dir.main, "results", "003_celltype")
+dir.create(dir.results, showWarnings = FALSE, recursive = TRUE)
+
+# Load R packages
+packages <- c("Seurat", "ggplot2", "dplyr", "tidyverse","grid",
+              "SingleCellExperiment", "scran", "scater", "pheatmap", "ComplexHeatmap", "ComplexUpset", "patchwork")
+
+# Function to check and install packages from CRAN or Bioconductor
+install_and_load <- function(pkg) {
+  # Check if the package is from Bioconductor
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
+    BiocManager::install(pkg, ask = FALSE)
+  }
+  # Load the package
+  suppressWarnings(suppressMessages(library(pkg, character.only = TRUE)))
+}
+
+# Apply function to each package
+suppressPackageStartupMessages({
+  invisible(lapply(packages, install_and_load))
+})
+
+# Load helper functions
+# Define the directory where utility scripts are located
+utils_dir <- "~/Documents/projects/singlecell/utilities/"
+# Get a list of all R files in the directory
+r_files <- list.files(utils_dir, pattern = "\\.R$", full.names = TRUE)
+# Source each R file
+invisible(suppressWarnings(suppressMessages(lapply(r_files, source))))
+
+```
+
+# Load data
+
+```{r}
+
+obj <- readRDS(file.path(dir.main, "results/002_integration/rdata/FN_postprocessed.rds"))
+
+```
+
+# Plot UMAPs
+```{r}
+
+DimPlot(object = obj, group.by = "seurat_clusters")
+DimPlot(object = obj, group.by = "sample")
+DimPlot(object = obj, group.by = "scDblFinder.class")
+
+```
+
+# Azimuth prediction
+
+```{r fig.width=14, fig.height=8, message=F, warning=F}
+
+invisible(gc())
+DefaultAssay(obj) <- "RNA"
+obj <- FindVariableFeatures(obj)
+obj <- RunAzimuth(obj, reference = "fetusref")
+
+DimPlot(object = obj, group.by = "predicted.annotation.l1") 
+
+pheatmap::pheatmap(scale(prop.table(as.matrix(table(obj@meta.data$predicted.annotation.l1,
+                                                    obj@meta.data$seurat_clusters)), 2)*100), 
+                    treeheight_col = 0, treeheight_row = 0, 
+                   angle_col = 0,  cluster_rows = F, cluster_cols = T,
+                   color = colorRampPalette(c("black", "white", "red"))(100))
+
+```
+
+# Annotation level 2
+```{r fig.width=12, fig.height=8}
+
+obj@meta.data$ann_level_2 <- NULL
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(20),"ann_level_2"] <- "Progenitor cells" # PAX6, "SOX2
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(38),"ann_level_2"] <-"Deuterosomal" # "DEUP1","HES6","CCNO"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(23,32),"ann_level_2"] <-"Multiciliated" # "SNTN","DNAH5"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(16,33,49,50),"ann_level_2"] <-"Vascular EC"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(43),"ann_level_2"] <-"Lymphatic EC"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(19,52),"ann_level_2"] <-"Pericytes" # PDGFRB
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(17),"ann_level_2"] <-"Neural progenitors" # "GFAP",SOX2,HES5
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(21),"ann_level_2"] <-"Excitatory neurons" # NEUROD2 (YINGCHAO SHI, 2021, DOI:10.1126/science.abj6641)
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(25),"ann_level_2"] <-"Inhibitory neurons" # GAD1 (Human protein atlas)
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(47),"ann_level_2"] <-"NOS1 neurons"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(51),"ann_level_2"] <-"Schwann precursors" # "SOX10" (Zeisel et al., 2018, Cell 174, 999–1014)
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(41),"ann_level_2"] <- "Olf. ensh. glia" # "NGFR","RUNX1","NPY","FRZB","SEMA3A","NUMB","PAX3,"NELL2
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(29),"ann_level_2"] <- "Neural crest" # "S100B","RUNX1","CHD7","FOXD3"
+obj@meta.data[obj@meta.data$predicted.annotation.l1 %in% c("Schwann cells"),"ann_level_2"] <-"Schwann cells" # "MPZ","MPB"
+obj@meta.data[rownames(obj@meta.data) %in% c(melano.cells),"ann_level_2"] <-"Melanocytes" # "IMITF"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(4,18,28),"ann_level_2"] <-"Cartilages" # "COL9A1", "COL11A1", "COL2A1", "ACAN", "WWP2"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(0,8,11,12),"ann_level_2"] <-"Osteoblasts" # "RUNX2"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(5,22,44),"ann_level_2"] <-"Stromal0" # prolif cells
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(1,2,13),"ann_level_2"] <- "Stromal1"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(3,9,10,27,34),"ann_level_2"] <- "Stromal2"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(6),"ann_level_2"] <-"Skeletal muscle"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(36,45,46),"ann_level_2"] <- "Satellites"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(53),"ann_level_2"] <-"GBCs" # "HES6"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(14,35,39,48,54),"ann_level_2"] <-"Basal KRT"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(30),"ann_level_2"] <-"Olf. HBCs"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(40,42),"ann_level_2"] <-"Cycling basal KRT"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(7,26,37,55),"ann_level_2"]  <- "Microvillars" # "MUC5AC (PMCID: PMC8564600), "GLIS3
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(15),"ann_level_2"]  <- "Sustentaculars" # "IQCJ-SCHIP1", "TMEM132D", "LPGAT1"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(31),"ann_level_2"] <-"Myeloid" 
+obj@meta.data[rownames(obj@meta.data) %in% c(microglia.cells),"ann_level_2"] <- "Microglia" # "CX3CR1", "CD14","TMEM119"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(24),"ann_level_2"] <- "iOSNs" 
+obj@meta.data[rownames(obj@meta.data) %in% c(mOSN.cells),"ann_level_2"] <- "mOSNs"
+obj@meta.data[rownames(obj@meta.data) %in% c(INP.cells),"ann_level_2"] <- "INP" # NEUROD1, NEUROG1
+obj@meta.data[rownames(obj@meta.data) %in% c(gnrh1.cells),"ann_level_2"] <-"GnRH neurons" # "ISL1","GNRH1","LINC01060","TAC3
+
+obj@meta.data$ann_level_2_order <- factor(obj@meta.data$ann_level_2, levels = c("Progenitor cells","Cycling basal KRT", "Basal KRT","Olf. HBCs","Deuterosomal", "Multiciliated", "Microvillars","Sustentaculars", "GBCs","INP","iOSNs","mOSNs","Inhibitory neurons", "Excitatory neurons","Neural progenitors","GnRH neurons", "NOS1 neurons","Schwann precursors","Schwann cells","Neural crest", "Olf. ensh. glia","Melanocytes","Vascular EC", "Lymphatic EC","Satellites", "Skeletal muscle","Stromal0","Stromal1","Stromal2","Osteoblasts","Cartilages", "Pericytes", "Myeloid", "Microglia"))
+
+DimPlot(object = obj, group.by = "ann_level_2")
+
+```
+
+## Annotation level 1
+
+```{r fig.width=12, fig.height=8}
+
+obj@meta.data$ann_level_1 <- NULL
+obj@meta.data[obj@meta.data$ann_level_2 %in% c("Progenitor cells"),"ann_level_1"] <- "Progenitor cells" 
+obj@meta.data[obj@meta.data$ann_level_2 %in% c("Deuterosomal", "Multiciliated","Cycling basal KRT", "Basal KRT"),"ann_level_1"] <- "Respiratory mucosa" 
+obj@meta.data[obj@meta.data$ann_level_2 %in% c("Olf. HBCs","Microvillars","Sustentaculars", "GBCs","INP","iOSNs","mOSNs"),"ann_level_1"] <- "Olfactory epithelium"
+obj@meta.data[obj@meta.data$ann_level_2 %in% c("Lymphatic EC"),"ann_level_1"] <- "Lymphatic EC"
+obj@meta.data[obj@meta.data$ann_level_2 %in% c("Vascular EC"),"ann_level_1"] <- "Vascular EC"
+obj@meta.data[obj@meta.data$ann_level_2 %in% c("Skeletal muscle"),"ann_level_1"] <- "Skeletal muscle"
+obj@meta.data[obj@meta.data$ann_level_2 %in% c("Satellites"),"ann_level_1"] <- "Satellites"
+obj@meta.data[obj@meta.data$ann_level_2 %in% c("Stromal0","Stromal1","Stromal2"),"ann_level_1"] <- "Mesenchyme" 
+obj@meta.data[obj@meta.data$ann_level_2 %in% c("Osteoblasts"),"ann_level_1"] <- "Osteoblasts" 
+obj@meta.data[obj@meta.data$ann_level_2 %in% c("Cartilages"),"ann_level_1"] <- "Cartilages" 
+obj@meta.data[obj@meta.data$ann_level_2 %in% c("Pericytes"),"ann_level_1"] <- "Pericytes" 
+obj@meta.data[obj@meta.data$ann_level_2 %in% c("Myeloid", "Microglia"),"ann_level_1"] <- "Immune" 
+obj@meta.data[obj@meta.data$ann_level_2 %in% c("Schwann precursors","Schwann cells"),"ann_level_1"] <- "Schwann cells"
+obj@meta.data[obj@meta.data$ann_level_2 %in% c("Melanocytes"),"ann_level_1"] <- "Melanocytes"
+obj@meta.data[obj@meta.data$ann_level_2 %in% c("Neural crest"),"ann_level_1"] <- "Neural crest"
+obj@meta.data[obj@meta.data$ann_level_2 %in% c("Olf. ensh. glia"),"ann_level_1"] <- "Olfactory ensheathing"
+obj@meta.data[obj@meta.data$ann_level_2 %in% c("Inhibitory neurons", "Excitatory neurons","Neural progenitors", "NOS1 neurons"),"ann_level_1"] <- "Neurons"
+obj@meta.data[obj@meta.data$ann_level_2 %in% c("GnRH neurons"),"ann_level_1"] <- "GnRH neurons"
+
+DimPlot(object = obj, group.by = "ann_level_1")
+
+```
+
+# Save data  
+
+```{r fig.width=12, fig.height=8}
+
+saveRDS(obj, file.path(dir.results, "rdata/FN.rds"))
+
+```
+
+# Session Info
+
+```{r session_info}
+
+utils::capture.output(devtools::session_info())
+
+```
