@@ -171,6 +171,25 @@ DimPlot(object = obj, group.by = "ann_level_1")
 
 ```
 
+## Annotation level 0
+
+```{r fig.width=12, fig.height=8}
+
+obj@meta.data$ann_level_0 <- NULL
+obj@meta.data[obj@meta.data$ann_level_2 %in% c("Progenitor cells"),"ann_level_0"] <- "Progenitor cells" 
+obj@meta.data[obj@meta.data$ann_level_2 %in% c("Deuterosomal", "Multiciliated","Cycling basal KRT", "Basal KRT","Olf. HBCs","Microvillars","Sustentaculars", "GBCs","INP","iOSNs","mOSNs"),"ann_level_0"] <- "Epithelium" 
+obj@meta.data[obj@meta.data$ann_level_2 %in% c("Vascular EC", "Lymphatic EC"),"ann_level_0"] <- "Endothelium"
+obj@meta.data[obj@meta.data$ann_level_2 %in% c("Satellites", "Skeletal muscle"),"ann_level_0"] <- "Myocytes"
+obj@meta.data[obj@meta.data$ann_level_2 %in% c("Stromal0","Stromal1","Stromal2","Osteoblasts","Cartilages","Pericytes"),"ann_level_0"] <- "Mesenchyme" 
+obj@meta.data[obj@meta.data$ann_level_2 %in% c("Myeloid", "Microglia"),"ann_level_0"] <- "Immune" 
+obj@meta.data[obj@meta.data$ann_level_2 %in% c("Neural crest","Melanocytes"),"ann_level_0"] <- "Neural crest"
+obj@meta.data[obj@meta.data$ann_level_2 %in% c("Schwann precursors","Olf. ensh. glia","Schwann cells"),"ann_level_0"] <- "Glial"
+obj@meta.data[obj@meta.data$ann_level_2 %in% c("Inhibitory neurons", "Excitatory neurons", "GnRH neurons","Neural progenitors", "NOS1 neurons"),"ann_level_0"] <- "Neurons"
+
+DimPlot(object = obj, group.by = "ann_level_0")
+
+```
+
 # Save data  
 
 ```{r fig.width=12, fig.height=8}
