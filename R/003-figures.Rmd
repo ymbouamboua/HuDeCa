@@ -1,0 +1,173 @@
+---
+title: "10x Hudeca Nasal: Figures"
+author: "Mbouamboua Yvon <yvon.mbouamboua@inserm.fr>"
+output:
+    html_document:
+       toc: true
+       toc_float: true
+       number_sections: true
+date: 'Last update: `r format(Sys.time())`'
+---
+
+# Setup
+
+```{r setup, include=TRUE, message=FALSE, warning=FALSE}
+
+invisible(gc())
+knitr::opts_chunk$set(warning = FALSE, results = TRUE, message = FALSE, comment = "")
+dir.main <- "/Users/yvon.mbouamboua/Documents/projects/singlecell/hudeca_nasal"
+dir.results <- file.path(dir.main, "results", "010_figures")
+dir.create(dir.results, showWarnings = FALSE, recursive = TRUE)
+
+# Load R packages
+packages <- c("Seurat", "ggplot2", "dplyr", "tidyverse","grid", "ggpubr","decoupleR","dorothea", "viper","ggraph",
+              "SingleCellExperiment", "scran", "scater", "pheatmap", "ComplexHeatmap", "ComplexUpset", "patchwork")
+
+# Function to check and install packages from CRAN or Bioconductor
+install_and_load <- function(pkg) {
+  # Check if the package is from Bioconductor
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
+    BiocManager::install(pkg, ask = FALSE)
+  }
+  # Load the package
+  suppressWarnings(suppressMessages(library(pkg, character.only = TRUE)))
+}
+
+# Apply function to each package
+suppressPackageStartupMessages({
+  invisible(lapply(packages, install_and_load))
+})
+
+# Load helper functions
+# Define the directory where utility scripts are located
+utils_dir <- "~/Documents/projects/singlecell/utilities/"
+# Get a list of all R files in the directory
+r_files <- list.files(utils_dir, pattern = "\\.R$", full.names = TRUE)
+# Source each R file
+invisible(suppressWarnings(suppressMessages(lapply(r_files, source))))
+
+```
+
+# Load data
+
+```{r}
+
+obj <- readRDS(file.path(dir.main, "results/003_celltype/rdata/FN.rds"))
+
+```
+
+# Define colors
+
+```{r}
+
+custom_colors <- list()
+custom_colors$ann_level_2 <- c("Cartilages" = "#0B4B19","Stromal0" = "#99D6A9", "Stromal1" = "#1B8F76","Stromal2" = "#9DAF07","Osteoblasts" = "#4CAD4C",  "Progenitor cells" = "blue", 
+"Lymphatic EC" = "#F78896", "Vascular EC" = "#E788C2","Pericytes" = "#BBD870","Satellites" = "#CB7647","Skeletal muscle" = "#926B54","Neural crest" = "#E3D9AC","Olf. ensh. glia" = "palevioletred3","Schwann precursors" = "orangered","Schwann cells" = "#95ccff","Melanocytes" = "#eb10fd","NOS1 neurons" = "#95819F","Olf. HBCs" = "#E41A1C","Basal KRT" = "#C82C73", 
+"Cycling basal KRT" = "#C2A523", "Microvillars" = "#efe13c","Multiciliated" = "#1f618d","Deuterosomal" = "#3498db","Sustentaculars" = "#C09ACA", "GBCs" = "#F48B5A", "INP" = "#E69F00", "iOSNs" = "#f05b43","mOSNs" = "#33b8ff","Neural progenitors" = "#6A0B78","Excitatory neurons" = "#706fd3","Inhibitory neurons" = "#800EF1","GnRH neurons" = "#2EECDB",
+"Myeloid" = "#736376","Microglia" = "#91BFB7")
+ custom_colors$sample_donor = c("S1-PCW7"="#E6AB02","S2-PCW8"="#A6761D","S3-PCW10"="#7570B3","S4-OB-PCW10.5"="#E7298A",  
+ "S5-PCW10"="#66A61E", "S6-OB-PCW12"="#D95F02","S7-PCW12"="#16658C", "S8-PCW12"="#134F0D")
+ custom_colors$donor = c("S1-PCW7"="#E6AB02","S2-PCW8"="#A6761D","S3-PCW10"="#7570B3","S4-PCW10.5"="#E7298A",  "S5-PCW10"="#16658C","S6-PCW12"="#D95F02", "S7-PCW12"="#66A61E","S8-PCW12"="#134F0D")
+ custom_colors$PCW = c("PCW7"="#E6AB02","PCW8"="#A6761D","PCW10"="#7570B3","PCW12"="#134F0D")
+ custom_colors$BMI = c("PCW7"="#E6AB02","PCW8"="#A6761D","PCW10"="#7570B3","OB-PCW10.5"="#E7298A","OB-PCW12"="#D95F02",
+ "PCW12"="#134F0D")
+ custom_colors$ann_level_1 <- c("Progenitor cells" = "blue","Respiratory epithelium" = "#5562B7", "Olfactory epithelium" = "#EF1B4F","Neurons" = "#6E5489","Glial" = "#919976", "Stroma" = "#009E73","Vasculars" = "#CC79A7","Myocytes" = "#803800",
+ "Immune" = "#736376","Pericytes" = "#BBD870")
+ custom_colors$group <- c("NORMAL-7-8"="#269BCF","NORMAL-10-12"="#8db600","OBESE-10-12"="#DD5D74")
+ custom_colors$sex <- c("M"="#854442", "F"="#be9b7b")
+ custom_colors$phase <- c("G1"="#9CD4FA", "G2M"="#f1c232", "S"="#90301B","PostM"="#6aa84f", "Non-Cycling" = "gray10")
+ 
+```
+
+# Figure 1
+## Fig 1b
+
+```{r }
+
+p <- DimPlot(object = obj, group.by = "donor_order", split.by = "donor_order", label = F, cols = custom_colors$donor, pt.size = 0.5) 
+save_plot(p, filename = file.path(dir.results, "figures/Figure_1/Fig_1b"),formats = c("pdf"),  width = 12, height = 5) 
+
+```
+
+## Fig 1c
+
+```{r }
+
+p <- DimPlot(object = obj, group.by = "donor_order", labels = F, cols = custom_colors$donor)
+save_plot(p, filename = file.path(dir.results, "figures/Figure_1/Fig_1c"),  width = 6.5, height = 5, formats = c("pdf"))
+
+```
+
+## Fig 1d
+
+```{r }
+
+p <- DimPlot(object = obj, group.by = "ann_level_2_order", labels = T) 
+save_plot(p, filename = file.path(dir.results, "figures/Figure_1/Fig_1d"),  width = 9, height = 6, formats = c("pdf"))
+
+```
+## Fig 1e-f
+
+```{r }
+
+p1 <- Summarize_Seurat(object = obj, group.by = "ann_level_2_order", condition.by = "sex", plot.variable = "total_transcripts", legend = T, 
+                 legend.ncol = 2, plot.title = "", legend.title = "Gender", reorder.bars = F, remove.x.labels = T,remove.x.title = T,
+                 remove.y.title = F,legend.position = c(0.05, 0.90), x.title = "celltype", y.title = "Counts", custom.colors = custom_colors$sex)
+
+p2 <- Stacked_VlnPlot(obj, features = c("nFeature_RNA", "nCount_RNA", "percent.mito"), group.by = "ann_level_2_order", x_angle = 45, x_vjust = 1,x_hjust = 1, pt.size = 0, font_size = 12, plot.title = "", colors.use = custom_colors$ann_level_2, line.size = 0.5)
+
+p1$plot+p2+plot_layout(ncol = 1)
+save_plot(p1$plot+p2+plot_layout(ncol = 1), filename = file.path(dir.results, "figures/Figure_1/Fig_1e-f"),  width = 10, height = 7, formats = c("pdf"))
+
+```
+
+```{r }
+
+# Epithelium
+DefaultAssay(obj) <- "RNA"
+Idents(obj) <- "ann_level_0"
+sub <- subset(obj, idents = c("Epithelium"))
+markers <- FindAllMarkers(sub,  group.by = "ann_level_2", only.pos = T, max.cells.per.ident = 10000)
+write.table(markers, file.path(dir.results, "tables/OE_RE_ann_level_2_markers.tsv"), sep = "\t", row.names = F, quote = F)
+top <- markers %>% group_by(cluster) %>% top_n(n = 5, wt = avg_log2FC)
+Idents(sub) <- "ann_level_2"
+p <- Dot_Plot(sub, features = rev(c(top$gene)), flip.axes = T, dot.scale = 6, base.size = 10,plot.title = "Olfactory + Respiratory epithelium", 
+              theme.bw = T, col.min = 0, angle.x = 45, legend.position = "right", legend.text.size = 8) 
+save_plot(p, filename = file.path(dir.results, "figures/Figure_1/Fig_1_g_Epithelium"),formats = c("pdf"),  width = 4, height = 8)    
+
+# Neurons, Glial, Neural crest
+sub <- subset(obj, idents = c("Neurons","Glial","Neural crest"))
+markers <- FindAllMarkers(sub,  group.by = "ann_level_2", only.pos = T, max.cells.per.ident = 10000)
+write.table(markers, file.path(dir.results, "tables/OE_RE_ann_level_2_markers.tsv"), sep = "\t", row.names = F, quote = F)
+top <- markers %>% group_by(cluster) %>% top_n(n = 5, wt = avg_log2FC)
+Idents(sub) <- "ann_level_2"
+p <- Dot_Plot(sub, features = rev(c(top$gene)), flip.axes = T, dot.scale = 6, base.size = 10,plot.title = "Glial + Neural crest + Neurons", 
+              theme.bw = T, col.min = 0, angle.x = 45, legend.position = "right", legend.text.size = 8) 
+save_plot(p, filename = file.path(dir.results, "figures/Figure_1/Fig_1_g_Neurons_Glial_Neural_Crest"),formats = c("pdf"),  width = 4, height = 8)    
+
+# Mesenchyme, Progenitor cells
+sub <- subset(obj, idents = c("Mesenchyme","Progenitor cells"))
+markers <- FindAllMarkers(sub,  group.by = "ann_level_2", only.pos = T, max.cells.per.ident = 10000)
+write.table(markers, file.path(dir.results, "tables/Mesenchyme_Progenitor_markers.tsv"), sep = "\t", row.names = F, quote = F)
+top <- markers %>% group_by(cluster) %>% top_n(n = 5, wt = avg_log2FC)
+Idents(sub) <- "ann_level_2"
+p <- Dot_Plot(sub, features = rev(c(top$gene)), flip.axes = T, dot.scale = 6, base.size = 10,plot.title = "Progenitor cells + Mesenchyme", 
+              theme.bw = T, col.min = 0, angle.x = 45, legend.position = "right", legend.text.size = 8) 
+save_plot(p, filename = file.path(dir.results, "figures/Figure_1/Fig_1_g_Progenitor_Mesenchyme"),formats = c("pdf"),  width = 4, height = 8)    
+
+# Vasculars, Myocytes, Immune
+sub <- subset(obj, idents = c("Endothelium","Myocytes","Immune"))
+markers <- FindAllMarkers(sub,  group.by = "ann_level_2", only.pos = T, max.cells.per.ident = 10000)
+write.table(markers, file.path(dir.results, "tables/Endo_Myocytes_Immune_ann_level_2_markers.tsv"), sep = "\t", row.names = F, quote = F)
+top <- markers %>% group_by(cluster) %>% top_n(n = 5, wt = avg_log2FC)
+Idents(sub) <- "ann_level_2"
+p <- Dot_Plot(sub, features = rev(c(top$gene)), flip.axes = T, dot.scale = 6, base.size = 10,plot.title = "Vasculars + Myocytes + Immune", 
+              theme.bw = T, col.min = 0, angle.x = 45, legend.position = "right", legend.text.size = 8) 
+save_plot(p, filename = file.path(dir.results, "figures/Figure_1/Fig_1_g_Endo_Myocytes_Immune"),formats = c("pdf"),  width = 4, height = 8)    
+
+```
+
+
+
+
