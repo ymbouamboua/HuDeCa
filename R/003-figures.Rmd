@@ -86,7 +86,7 @@ custom_colors$ann_level_2 <- c("Cartilages" = "#0B4B19","Stromal0" = "#99D6A9", 
 ```{r }
 
 p <- DimPlot(object = obj, group.by = "donor_order", split.by = "donor_order", label = F, cols = custom_colors$donor, pt.size = 0.5) 
-save_plot(p, filename = file.path(dir.results, "figures/Figure_1/Fig_1b"),formats = c("pdf"),  width = 12, height = 5) 
+save_plot(p, filename = file.path(dir.results, "figures/Fig_1b"),formats = c("pdf"),  width = 12, height = 5) 
 
 ```
 
@@ -95,7 +95,7 @@ save_plot(p, filename = file.path(dir.results, "figures/Figure_1/Fig_1b"),format
 ```{r }
 
 p <- DimPlot(object = obj, group.by = "donor_order", labels = F, cols = custom_colors$donor)
-save_plot(p, filename = file.path(dir.results, "figures/Figure_1/Fig_1c"),  width = 6.5, height = 5, formats = c("pdf"))
+save_plot(p, filename = file.path(dir.results, "figures/Fig_1c"),  width = 6.5, height = 5, formats = c("pdf"))
 
 ```
 
@@ -104,7 +104,7 @@ save_plot(p, filename = file.path(dir.results, "figures/Figure_1/Fig_1c"),  widt
 ```{r }
 
 p <- DimPlot(object = obj, group.by = "ann_level_2_order", labels = T) 
-save_plot(p, filename = file.path(dir.results, "figures/Figure_1/Fig_1d"),  width = 9, height = 6, formats = c("pdf"))
+save_plot(p, filename = file.path(dir.results, "figures/Fig_1d"),  width = 9, height = 6, formats = c("pdf"))
 
 ```
 ## Fig 1e-f
@@ -118,7 +118,7 @@ p1 <- Summarize_Seurat(object = obj, group.by = "ann_level_2_order", condition.b
 p2 <- Stacked_VlnPlot(obj, features = c("nFeature_RNA", "nCount_RNA", "percent.mito"), group.by = "ann_level_2_order", x_angle = 45, x_vjust = 1,x_hjust = 1, pt.size = 0, font_size = 12, plot.title = "", colors.use = custom_colors$ann_level_2, line.size = 0.5)
 
 p1$plot+p2+plot_layout(ncol = 1)
-save_plot(p1$plot+p2+plot_layout(ncol = 1), filename = file.path(dir.results, "figures/Figure_1/Fig_1e-f"),  width = 10, height = 7, formats = c("pdf"))
+save_plot(p1$plot+p2+plot_layout(ncol = 1), filename = file.path(dir.results, "figures/Fig_1e-f"),  width = 10, height = 7, formats = c("pdf"))
 
 ```
 
@@ -132,9 +132,8 @@ markers <- FindAllMarkers(sub,  group.by = "ann_level_2", only.pos = T, max.cell
 write.table(markers, file.path(dir.results, "tables/OE_RE_ann_level_2_markers.tsv"), sep = "\t", row.names = F, quote = F)
 top <- markers %>% group_by(cluster) %>% top_n(n = 5, wt = avg_log2FC)
 Idents(sub) <- "ann_level_2"
-p <- Dot_Plot(sub, features = rev(c(top$gene)), flip.axes = T, dot.scale = 6, base.size = 10,plot.title = "Olfactory + Respiratory epithelium", 
-              theme.bw = T, col.min = 0, angle.x = 45, legend.position = "right", legend.text.size = 8) 
-save_plot(p, filename = file.path(dir.results, "figures/Figure_1/Fig_1_g_Epithelium"),formats = c("pdf"),  width = 4, height = 8)    
+p <- Dot_Plot(sub, features = rev(c(top$gene)), flip.axes = T, dot.scale = 6, base.size = 10,plot.title = "Olfactory + Respiratory epithelium", theme.bw = T, col.min = 0, angle.x = 45, legend.position = "right", legend.text.size = 8) 
+save_plot(p, filename = file.path(dir.results, "figures/Fig_1g_epithelium"),formats = c("pdf"),  width = 4, height = 8)    
 
 # Neurons, Glial, Neural crest
 sub <- subset(obj, idents = c("Neurons","Glial","Neural crest"))
@@ -142,9 +141,8 @@ markers <- FindAllMarkers(sub,  group.by = "ann_level_2", only.pos = T, max.cell
 write.table(markers, file.path(dir.results, "tables/OE_RE_ann_level_2_markers.tsv"), sep = "\t", row.names = F, quote = F)
 top <- markers %>% group_by(cluster) %>% top_n(n = 5, wt = avg_log2FC)
 Idents(sub) <- "ann_level_2"
-p <- Dot_Plot(sub, features = rev(c(top$gene)), flip.axes = T, dot.scale = 6, base.size = 10,plot.title = "Glial + Neural crest + Neurons", 
-              theme.bw = T, col.min = 0, angle.x = 45, legend.position = "right", legend.text.size = 8) 
-save_plot(p, filename = file.path(dir.results, "figures/Figure_1/Fig_1_g_Neurons_Glial_Neural_Crest"),formats = c("pdf"),  width = 4, height = 8)    
+p <- Dot_Plot(sub, features = rev(c(top$gene)), flip.axes = T, dot.scale = 6, base.size = 10,plot.title = "Glial + Neural crest + Neurons", theme.bw = T, col.min = 0, angle.x = 45, legend.position = "right", legend.text.size = 8) 
+save_plot(p, filename = file.path(dir.results, "figures/Fig_1g_neurons_glial_neural_crest"),formats = c("pdf"),  width = 4, height = 8)    
 
 # Mesenchyme, Progenitor cells
 sub <- subset(obj, idents = c("Mesenchyme","Progenitor cells"))
@@ -154,7 +152,7 @@ top <- markers %>% group_by(cluster) %>% top_n(n = 5, wt = avg_log2FC)
 Idents(sub) <- "ann_level_2"
 p <- Dot_Plot(sub, features = rev(c(top$gene)), flip.axes = T, dot.scale = 6, base.size = 10,plot.title = "Progenitor cells + Mesenchyme", 
               theme.bw = T, col.min = 0, angle.x = 45, legend.position = "right", legend.text.size = 8) 
-save_plot(p, filename = file.path(dir.results, "figures/Figure_1/Fig_1_g_Progenitor_Mesenchyme"),formats = c("pdf"),  width = 4, height = 8)    
+save_plot(p, filename = file.path(dir.results, "figures/Fig_1g_progenitor_mesenchyme"),formats = c("pdf"),  width = 4, height = 8)    
 
 # Vasculars, Myocytes, Immune
 sub <- subset(obj, idents = c("Endothelium","Myocytes","Immune"))
@@ -164,9 +162,434 @@ top <- markers %>% group_by(cluster) %>% top_n(n = 5, wt = avg_log2FC)
 Idents(sub) <- "ann_level_2"
 p <- Dot_Plot(sub, features = rev(c(top$gene)), flip.axes = T, dot.scale = 6, base.size = 10,plot.title = "Vasculars + Myocytes + Immune", 
               theme.bw = T, col.min = 0, angle.x = 45, legend.position = "right", legend.text.size = 8) 
-save_plot(p, filename = file.path(dir.results, "figures/Figure_1/Fig_1_g_Endo_Myocytes_Immune"),formats = c("pdf"),  width = 4, height = 8)    
+save_plot(p, filename = file.path(dir.results, "figures/Fig_1g_endo_myocytes_immune"),formats = c("pdf"),  width = 4, height = 8)    
 
 ```
+
+# Figure 2
+## Fig 2b
+
+```{r}
+
+Idents(obj) <- "ann_level_2"
+sub <- Seurat_Subset(obj, cluster_id = c("Olf. HBCs", "Microvillars","Sustentaculars","GBCs","INPs","iOSNs","mOSNs"), 
+                     ndims = 5, min.dist = 1)
+
+p <- DimPlot(sub, group.by = "ann_level_2", labels = T, cols = custom_colors$ann_level_2)
+p
+save_plot(p, filename = file.path(dir.results, "figures/Fig_2b"),  width = 6.5, height = 5, formats = c("pdf"))
+
+
+```
+
+## Fig 2c
+
+```{r fig.width=6, fig.height=4, warning=FALSE, message=F}
+
+Idents(obj) <- "ann_level_2"
+sub <- subset(obj, idents = c("Olf. HBCs", "Microvillars","Sustentaculars","GBCs","INPs","iOSNs","mOSNs"))
+
+p <- plot_cluster_percent(data = sub, label_size = 3, cluster_col = "ann_level_2_order", group_col = "PCW_order",sample_col = "sample", group_colors = custom_colors$PCW,sample_colors = pseudo_rep_colors, legend = FALSE, 
+                     multi_p = F,ncol = 4,x_angle = 45, fontsize = 8, y_title = "Proportions (%)", theme_type = "minimal")
+p
+save_plot(p, filename = file.path(dir.results, "figures/Fig_2c"),  width = 6, height = 4, formats = c("pdf"))
+
+```
+
+## Fig 2d
+
+```{r fig.width=2.8, fig.height=10}
+
+Idents(obj) <- "ann_level_2"
+sub <- subset(obj, idents = c("Olf. HBCs", "Microvillars","Sustentaculars","GBCs","INPs","iOSNs","mOSNs"))
+progression_markers <- FindAllMarkers(sub, group.by = "PCW", max.cells.per.ident = 10000,test.use = "LR") 
+write.table(progression_markers, file.path(dir.main, "results/005_differential_expression/tables/OE_PCW_progression_markers.tsv"), 
+            sep = "\t", row.names = F, quote = F)
+markers <- read.delim(file.path(dir.main, "results/005_differential_expression/tables/OE_PCW_progression_markers.tsv"))
+top <- markers %>% group_by(cluster) %>% top_n(n = 20, wt = avg_log2FC)
+
+genes <- intersect(top$gene, rownames(sub@assays$RNA@counts))
+filt <- subset(sub, features = genes)
+#sub <- sub[rowSums(sub@assays$RNA@counts > 1) >= 2, ]
+avg <- AverageExpression(filt, group.by = "PCW_order", features = genes)
+avg <- as.matrix(avg$RNA)
+avg <- avg[!(rowSums(is.na(avg))),]
+cal_z_score <- function(x){(x-mean(x))/sd(x)}
+avg <- t(apply(avg, 1, cal_z_score))
+sum(is.na(avg)) 
+avg[is.na(avg)] <- 0
+avg <- as.matrix(avg)
+gene_order <- order(apply(avg, 1, which.max))  # Trie selon la colonne où l'expression est maximale
+avg <- avg[gene_order, ] 
+dim(avg)
+newnames <- lapply(rownames(avg), function(x) bquote(italic(.(x))))
+
+ht <- ComplexHeatmap::Heatmap(avg, 
+              row_labels = as.expression(newnames),
+              show_column_names = TRUE, 
+              show_row_names = TRUE, 
+              cluster_rows = FALSE,  # Désactiver le clustering des lignes car déjà ordonné
+              cluster_columns = FALSE,
+              column_names_centered = TRUE,
+              show_row_dend = FALSE,
+              column_dend_reorder = FALSE,
+              column_names_rot = 0,
+              col = viridis::viridis(256),
+              border = "black",
+              row_names_gp = gpar(fontsize = 8),  
+              column_names_gp = gpar(fontsize = 8, fontface = "bold"),  
+              column_names_side = "top",
+              #rect_gp = gpar(col = "white", lwd = 0.1),
+              heatmap_legend_param = list(
+                title = "z-score",
+                legend_height = unit(0.01, 'cm'),
+                legend_width = unit(4.5, 'cm'),
+                legend_direction = "horizontal", 
+                border = 'black'))
+
+pdf(file.path(dir.results, "figures/Fig_2d.pdf"), useDingbats = F,  width = 2.8, height = 10) 
+draw(ht, heatmap_legend_side="bottom", annotation_legend_side="bottom")
+dev.off()
+
+```
+
+# Figure 3
+
+## Fig 3a
+
+```{r}
+
+highlight_color = c("GBCs"="#F48B5A","INPs"= "#E69F00","iOSNs"="#f05b43", "mOSNs"="#33b8ff")
+Idents(obj) <- "ann_level_2"
+p <- Highlighted_Clusters(object = obj, cluster.name = c("GBCs","INPs","iOSNs","mOSNs"),group.by = "ann_level_2", highlight.color = highlight_color, legend = T, plot.title = "") + theme(legend.position = c(0.80, 0.20))
+p
+save_plot(p, filename = file.path(dir.results, "figures/Fig_3a"),  width = 6.5, height = 5, formats = c("pdf"))
+
+```
+
+## Fig 3b
+
+```{r}
+
+Idents(obj) <- "ann_level_2"
+sub <- Seurat_Subset(obj, cluster_id = c("GBCs","INPs","iOSNs","mOSNs"), ndims = 5, min.dist = 1)
+
+p <- Dim_Plot(sub, group.by = "ann_level_2", label.show = T, label.size = 5,legend = F, label.fontface = "bold",
+              pt.size = 2, colors.use = custom_colors$ann_level_2, no.axes = T, plot.title = "")
+p
+save_plot(p, filename = file.path(dir.results, "figures/Fig_3b"),  width = 6.5, height = 5, formats = c("pdf"))
+
+```
+
+## Fig_3c
+
+```{r fig.width=8, fig.height=6}
+
+p <- FeaturePlot(sub, features = c("HES6","SOX2","NNAT","MYBL1", "TOP2A","MKI67", "NEUROG1","NEUROD1","GAP43","GNG8","GNG13","TEX15","GNAL","ADCY3","ACSL6","CNG4","OLIG2","RTP1","CBX8","PTPRR","RTN1"))
+p
+save_plot(p, filename = file.path(dir.results, "figures/Fig_3c"),  width = 8, height = 6, formats = c("pdf"))
+
+```
+
+## Fig 3e
+
+```{r}
+
+Idents(obj) <- "ann_level_2"
+sub <- Seurat_Subset(obj, cluster_id = c("Olf. HBCs", "Microvillars","Sustentaculars","GBCs","INP","iOSNs","mOSNs"))
+
+genes <- c("COL27A1","TP63","DSC3", # Olf. HBC
+           "IQCJ-SCHIP1","SLCO1A2","SLCO1B1", # Sustentaculars
+           "CFTR","MUC5AC", # Microvillars
+           "NEUROD1","NEUROG1", "TOP2A","MKI67", 
+           "HES6", "EZH2", "COL9A2", # GBCs
+           "THSD7B","NKAIN1","KCNH6","UNCX", # INP 
+           "TEX15","DPF3","GNG8","GAP43","OLIG2","DCX","SPOCK2","NHLH2","TUBB2", "FSTL5","CALB2","PCSK1N", # iOSNs
+           "PTPRR","GNGB1","ACSL6","GNG13","RTP1","MGAT4D" # mOSNs
+           )
+
+genes <- intersect(genes, rownames(sub@assays$RNA@counts))
+filt <- subset(sub, features = genes)
+avg <- AverageExpression(filt, group.by = "ann_level_2_order", features = genes)
+avg <- as.matrix(avg$RNA)
+avg <- avg[!(rowSums(is.na(avg))),]
+cal_z_score <- function(x){(x-mean(x))/sd(x)}
+avg <- t(apply(avg, 1, cal_z_score))
+sum(is.na(avg)) 
+avg[is.na(avg)] <- 0
+avg <- as.matrix(avg)
+gene_order <- order(apply(avg, 1, which.max))  # Trie selon la colonne où l'expression est maximale
+avg <- avg[gene_order, ] 
+dim(avg)
+newnames <- lapply(rownames(avg), function(x) bquote(italic(.(x))))
+
+library(ComplexHeatmap)
+
+ht <- ComplexHeatmap::Heatmap(avg, 
+              row_labels = as.expression(newnames),
+              show_column_names = TRUE, 
+              show_row_names = TRUE, 
+              cluster_rows = FALSE,  # Désactiver le clustering des lignes car déjà ordonné
+              cluster_columns = FALSE,
+              column_names_centered = TRUE,
+              show_row_dend = FALSE,
+              column_dend_reorder = FALSE,
+              column_names_rot = 0,
+              border = "black",
+              #col = viridis::inferno(256),
+              row_names_gp = gpar(fontsize = 8),  
+              column_names_gp = gpar(fontsize = 8, fontface = "bold"),  
+              column_names_side = "top",
+              heatmap_legend_param = list(
+                title = "z-score",
+                legend_height = unit(0.01, 'cm'),
+                legend_width = unit(4.5, 'cm'),
+                #legend_direction = "horizontal", 
+                border = 'black'))
+
+pdf(file.path(dir.results, "figures/Fig_3e.pdf"), useDingbats = F,  width = 10, height = 3) 
+draw(ht, heatmap_legend_side="right")
+dev.off()
+
+```
+
+## Fig 3f
+
+```{r fig.width=6, fig.height=5}
+
+DefaultAssay(sub) <- "RNA"
+sub <- Filter_Unwanted_Genes(sub, scale_data = T)
+Idents(sub) <- "ann_level_2"
+sce <- as.SingleCellExperiment(sub)
+reducedDim(sce, "PCA", withDimnames=TRUE) <- sub[['pca']]@cell.embeddings
+reducedDim(sce, "UMAP", withDimnames=TRUE) <- sub[['umap']]@cell.embeddings
+start.clus <- "Olf. HBCs"
+end.clus <- c("Microvillars","Sustentaculars","mOSNs")
+sce <- suppressWarnings(slingshot(sce, 
+                                  thresh = 0, 
+                                  reducedDim = 'UMAP', 
+                                  clusterLabels = 'ann_level_2', 
+                                  start.clus = start.clus,
+                                  end.clus = end.clus
+                                  ))
+#saveRDS(sce, file.path(dir.results, "rdata/OE_slingshot.rds"))
+dimred <- as.matrix(sub@reductions$umap@cell.embeddings)
+clustering <- sub$ann_level_2
+lineages <- SlingshotDataSet(sce)
+lineages
+curves <- getCurves(lineages, approx_points = NULL, thresh = 0.01, stretch = 0, allow.breaks = FALSE, shrink = 0.99)
+
+```
+
+
+```{r fig.width=6, fig.height=5}
+
+colors <- c("Olf. HBCs"="#E41A1C","GBCs"="#F48B5A","INPs"= "#E69F00","iOSNs"="#f05b43","mOSNs"="#33b8ff", "Microvillars"="#efe13c","Sustentaculars"="#C09ACA")
+
+pdf(file.path(dir.results, "figures/Fig_3f.pdf"), useDingbats = F, width = 6.5, height = 6) 
+plot(dimred, col = colors[clustering], cex = 0.6, pch = 16, axes = FALSE, xlab = "", ylab = "")
+lines(lineages,  lwd = 2, type = 'lineages', col = 'black', show.constraints = TRUE)
+dev.off()
+
+```
+
+## Fig 3g
+
+```{r fig.width=6, fig.height=5}
+
+pdf(file.path(dir.results, "figures/Fig_3g.pdf"), useDingbats = F, width = 6.5, height = 6) 
+plot(dimred, col = colors[clustering], cex = 0.6, pch = 16, axes = FALSE, xlab = "", ylab = "")
+lines(SlingshotDataSet(curves), lwd = 2, col = "black")
+dev.off()
+
+```
+
+```{r}
+
+## Neuronal lineage
+
+plot_pseudotime_umap(
+  sce = sce,
+  pseudotime_col = "slingPseudotime_1",
+  embedding = "UMAP",
+  title = "Neuronal lineage",
+  color_palette = "YlGnBu",
+  output_file = file.path(dir.results, "figures/Fig_3g_neuronal_lineage.pdf")
+)
+
+## Microvillar lineage
+
+plot_pseudotime_umap(
+  sce = sce,
+  pseudotime_col = "slingPseudotime_2",
+  embedding = "UMAP",
+  title = "Microvillar lineage",
+  color_palette = "YlGnBu",
+  output_file = file.path(dir.results, "figures/Fig_3g_microvilar_lineage.pdf")
+)
+
+## Sustentacular lineage
+plot_pseudotime_umap(
+  sce = sce,
+  pseudotime_col = "slingPseudotime_3",
+  embedding = "UMAP",
+  title = "Sustentacular lineage",
+  color_palette = "YlGnBu",
+  output_file = file.path(dir.results, "figures/Fig_3g_sustentacular_lineage.pdf")
+)
+
+
+```
+
+## Fig 3h
+
+```{r}
+
+# Extract pseudotime
+pseudotime_data <- as.data.frame(slingPseudotime(sce))
+
+# Melt pseudotime data for ggplot
+pseudotime_melted <- reshape2::melt(pseudotime_data, 
+                          variable.name = "Lineage", 
+                          value.name = "Pseudotime")
+
+# Add cell type or cluster information
+pseudotime_melted$PCW <- sce$PCW_order
+
+# Generate density plot
+p <- ggplot(pseudotime_melted, aes(x = Pseudotime, fill = PCW, color = PCW)) +
+  geom_density(alpha = 0.5) +
+  theme_classic() +
+  labs(title = "Differential progression in olfactory epithelium \n from PCW7 to PCW12",
+       x = "Pseudotime",
+       y = "Density") +
+  scale_fill_manual(values = custom_colors$PCW) +
+    scale_color_manual(values = custom_colors$PCW) +
+    guides(fill = guide_legend(title = NULL), color = guide_legend(title = NULL)) +
+  plot_theme(theme_type = "classic",legend_position = c(0.08,0.85))
+
+print(p)
+save_plot(p, filename = file.path(dir.results, "figures/OE_pseudotime_differential_progression"),formats = c("png", "pdf"),  width = 5, height = 3)    
+
+```
+
+
+## Fig 3j
+### Neuronal lineage
+
+```{r fig.width=4, fig.height=8}
+
+gam_results <- test_pseudotime_genes_gam(
+  seurat_obj = sub,
+  sce_obj = sce,
+  pseudotime_col = "slingPseudotime_1",
+  annotation_level = "ann_level_2",
+  selected_celltypes = c("Olf. HBCs", "GBCs", "INPs", "iOSNs", "mOSNs"),
+  n_variable_genes = 500
+)
+
+
+cell_lineage1 <- c("Olf. HBCs", "GBCs", "INPs", "iOSNs", "mOSNs")
+subset_sce <- sce[, sce$ann_level_2 %in% cell_lineage1 & !is.na(sce$slingPseudotime_1)]
+
+
+plot_heatmap_pseudotime(
+  sce = subset_sce,
+  pseudotime_col = "slingPseudotime_1",
+  annotation_col = "ann_level_2",
+  lineage_cells = gam_results$lineage_cells,
+  ptime_order = gam_results$lineage_cells[order(gam_results$ptime)],
+  gene_list = head(gam_results$result$id, 50),
+  celltype_order = c("Olf. HBCs", "GBCs", "INPs", "iOSNs", "mOSNs"),
+  celltype_colors = c("Olf. HBCs" = "#E41A1C", "GBCs" = "#F48B5A",
+                      "INPs" = "#E69F00", "iOSNs" = "#f05b43", "mOSNs" = "#33b8ff"),
+  #output_pdf = file.path(dir.results, "figures/Fig_3j_heatmap_pseudotime_neuronal_lineage.pdf"),
+  cluster_rows = TRUE, 
+  show_annotation_legend = F,
+  pdf_width = 4, pdf_height = 8,
+  plot_title = "Neuronal lineage",
+  font_size = 10,
+  method = "complex"
+)
+
+
+```
+
+### Microvillar lineage
+
+```{r fig.width=4, fig.height=8}
+
+gam_results <- test_pseudotime_genes_gam(
+  seurat_obj = sub,
+  sce_obj = sce,
+  pseudotime_col = "slingPseudotime_2",
+  annotation_level = "ann_level_2",
+  selected_celltypes = c("Olf. HBCs",  "GBCs",  "Sustentaculars"),
+  n_variable_genes = 500
+)
+
+
+cell_lineage <- c("Olf. HBCs", "GBCs", "Sustentaculars")
+subset_sce <- sce[, sce$ann_level_2 %in% cell_lineage & !is.na(sce$slingPseudotime_2)]
+
+
+plot_heatmap_pseudotime(
+  sce = subset_sce,
+  pseudotime_col = "slingPseudotime_2",
+  annotation_col = "ann_level_2",
+  lineage_cells = gam_results$lineage_cells,
+  ptime_order = gam_results$lineage_cells[order(gam_results$ptime)],
+  gene_list = head(gam_results$result$id, 50),
+  celltype_order = c("Olf. HBCs", "GBCs", "Sustentaculars"),
+  celltype_colors = c("Olf. HBCs" = "#E41A1C", "GBCs" = "#F48B5A", "Sustentaculars" = "#C09ACA"),
+  #output_pdf = file.path(dir.results, "figures/Fig_3j_heatmap_pseudotime_microvillar_lineage.pdf"),
+  pdf_width = 4, pdf_height = 8,
+  plot_title = "Sustentacular lineage",
+  cluster_rows = TRUE, show_annotation_legend = F,
+  font_size = 10, method = "complex"
+)
+
+
+```
+
+### Sustentacular lineage
+
+```{r fig.width=4, fig.height=8}
+
+gam_results <- test_pseudotime_genes_gam(
+  seurat_obj = sub,
+  sce_obj = sce,
+  pseudotime_col = "slingPseudotime_3",
+  annotation_level = "ann_level_2",
+  selected_celltypes = c("Olf. HBCs",  "Microvillars"),
+  n_variable_genes = 500
+)
+
+
+cell_lineage <- c("Olf. HBCs", "Microvillars")
+subset_sce <- sce[, sce$ann_level_2 %in% cell_lineage & !is.na(sce$slingPseudotime_3)]
+
+
+plot_heatmap_pseudotime(
+  sce = subset_sce,
+  pseudotime_col = "slingPseudotime_3",
+  annotation_col = "ann_level_2",
+  lineage_cells = gam_results$lineage_cells,
+  ptime_order = gam_results$lineage_cells[order(gam_results$ptime)],
+  gene_list = head(gam_results$result$id, 50),
+  celltype_order = c("Olf. HBCs", "GBCs", "Microvillars"),
+  celltype_colors = c("Olf. HBCs" = "#E41A1C", "Microvillars" = "#efe13c"),
+  #output_pdf = file.path(dir.results, "figures/Fig_3j_heatmap_pseudotime_sustentacular_lineage.pdf"),
+  cluster_rows = TRUE, show_annotation_legend = F,
+  pdf_width = 4, pdf_height = 8,
+  plot_title = "Microvilar lineage",
+  font_size = 10, method = "complex"
+)
+
+```
+
+# Figure 4
+
 
 
 
