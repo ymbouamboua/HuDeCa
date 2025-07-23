@@ -589,6 +589,170 @@ plot_heatmap_pseudotime(
 ```
 
 # Figure 4
+## Fig 4a
+
+```{r fig.width=7, fig.height=25}
+
+tf_genes <- c("EBF1","LHX2","LDB1","NEUROD2","PAX2","SIX1","BARX2","NFKBIZ")
+
+p <- plot_tf_activity_expression(sub, tf_list = tf_genes)
+print(p)
+save_plot(p, filename = file.path(dir.results, "figures/Fig_4a"),formats = c("pdf"),  width = 7, height = 25)
+
+```
+
+## Fig 4b
+
+```{r fig.width=8, fig.height=14}
+
+## DecoupleR
+
+Idents(obj) <- "ann_level_2"
+sub <- Seurat_Subset(obj, cluster_id = c("Olf. HBCs", "Microvillars","Sustentaculars","GBCs","INPs","iOSNs","mOSNs"), ndims = 5, min.dist = 1)
+net <- readRDS("~/Documents/projects/singlecell/hudeca_nasal/data/external/net.rds")
+
+# Extract the normalized log-transformed counts
+mat <- as.matrix(sub@assays$RNA@data)
+
+# # Run ulm
+acts <- decoupleR::run_ulm(mat = mat, 
+                           net = net, 
+                           .source = 'source', 
+                           .target = 'target',
+                           .mor='mor', 
+                           minsize = 5)
+saveRDS(acts, file.path(dir.results, "rdata/OE_acts.rds"))
+
+acts <- readRDS(file.path(dir.results, "rdata/OE_acts.rds"))
+
+# Assign TF activities as a new assay in Seurat object
+sub[['tfsulm']] <- acts %>%
+                    tidyr::pivot_wider(id_cols = 'source', 
+                                       names_from = 'condition',
+                                       values_from = 'score') %>%
+                    tibble::column_to_rownames('source') %>%
+                    Seurat::CreateAssayObject(.)
+
+# Set assay and normalize data
+DefaultAssay(sub) <- "tfsulm"
+sub <- Seurat::ScaleData(sub)
+sub@assays$tfsulm@data <- sub@assays$tfsulm@scale.data
+
+# Define identity classes
+Idents(sub) <- "ann_level_2"
+
+# Extract activities and restructure
+df <- t(as.matrix(sub@assays$tfsulm@data)) %>%
+      as.data.frame() %>%
+      dplyr::mutate(cluster = Seurat::Idents(sub),
+                    PCW = sub$PCW) %>%  # Include PCW information
+      tidyr::pivot_longer(cols = -c(cluster, PCW), 
+                          names_to = "source", 
+                          values_to = "score") %>%
+      dplyr::group_by(cluster, PCW, source) %>%
+      dplyr::summarise(mean_score = mean(score), .groups = "drop")
+
+# Select highly variable TFs
+n_tfs <- 100  # Number of top TFs to select
+top_tfs <- df %>%
+           dplyr::group_by(source) %>%
+           dplyr::summarise(std_dev = stats::sd(mean_score)) %>%
+           dplyr::arrange(-abs(std_dev)) %>%
+           head(n_tfs) %>%
+           dplyr::pull(source)
+
+top_tfs <- unique(c("LHX2", "LDB1","DLX1","JUNB","PAX9","TFAP2C","FOXO1", "STAT4","ZFP560", "SAP30", "VAX2","PBX1","DLX1","DLX2","DLX5","ARX","OXT1","LHX8", top_tfs))
+
+
+# Filter and reshape for heatmap
+heatmap_data <- df %>%
+                dplyr::filter(source %in% top_tfs) %>%
+                tidyr::pivot_wider(id_cols = c("cluster", "PCW"), 
+                                   names_from = "source", 
+                                   values_from = "mean_score") %>%
+                unite("ID", cluster, PCW, sep = "_") %>%  # Merge cluster & PCW
+                tibble::column_to_rownames('ID') %>%
+                as.matrix()
+
+# Replace NA values
+heatmap_data[is.na(heatmap_data)] <- 0
+
+# Define annotation for heatmap
+anno <- as.data.frame(str_split_fixed(rownames(heatmap_data), "_", 2))
+rownames(anno) <- rownames(heatmap_data)
+colnames(anno) <- c("Cell types", "PCW")
+
+# Define custom order & colors
+pcw_order <- c("PCW7", "PCW8", "PCW10", "PCW12")
+celltype_order <- c("Olf. HBCs", "Microvillars", "Sustentaculars", "GBCs", "INPs", "iOSNs", "mOSNs")
+
+celltype_colors <- c("Olf. HBCs" = "#E41A1C", "Microvillars" = "#efe13c", 
+                     "Sustentaculars" = "#C09ACA", "GBCs" = "#F48B5A", 
+                     "INPs" = "#E69F00", "iOSNs" = "#f05b43", "mOSNs" = "#33b8ff")
+
+anno$PCW <- factor(anno$PCW, levels = pcw_order)
+anno$`Cell types` <- factor(anno$`Cell types`, levels = celltype_order)
+
+anno_colors = list("Cell types" = celltype_colors, 
+                   PCW = setNames(custom_colors$PCW, pcw_order))
+
+# Reorder matrix for heatmap
+mtx <- t(heatmap_data)
+mtx <- mtx[, order(factor(sub("_PCW", "", colnames(mtx)), levels = celltype_order))]
+#mtx <- mtx[, order(anno$PCW, anno$`Cell types`)]
+mtx <- mtx[, order(anno$`Cell types`,anno$PCW)]
+
+# Order genes by max expression
+gene_order <- order(apply(mtx, 1, which.max))
+mtx <- mtx[gene_order, ]
+row_labels <- lapply(rownames(mtx), function(x) bquote(italic(.(x))))
+
+# Define color palette
+colors <- rev(RColorBrewer::brewer.pal(n = 11, name = "RdBu"))
+colors.use <- grDevices::colorRampPalette(colors = colors)(100)
+
+my_breaks <- c(seq(-2, 0, length.out = ceiling(100 / 2) + 1),
+               seq(0.05, 2, length.out = floor(100 / 2)))
+
+# Combine annotations for Cell Types and PCW into a single annotation
+col_annotation <- anno[, c("PCW","Cell types"), drop = FALSE]
+
+# Plot heatmap
+p <- pheatmap::pheatmap(
+  mat = mtx, 
+  annotation = col_annotation, 
+  annotation_colors = anno_colors,
+  cluster_cols = FALSE,
+  cluster_rows = F,
+  show_colnames = FALSE,
+  fontsize = 10,
+  fontsize_row = 10,
+  labels_row = as.expression(row_labels),
+  #color = colors.use,
+  color = colorRampPalette(c("purple", "black", "yellow"))(100),
+  main = "Regulon activities",
+  #treeheight_col = 0,
+  #treeheight_row = 0,
+  border_color = "black",
+  breaks = my_breaks
+)
+
+# Save output
+ggsave(file.path(dir.results,"figures/Fig_4b.pdf"),
+       plot = p, width = 8, height = 14, useDingbats = FALSE, dpi = 200)
+
+```
+
+## Fig 4c
+
+```{r fig.width=20, fig.height=15}
+
+tf_genes <- c("EBF1","LHX2","NEUROD2","PAX2","SIX1","SATB2","ARID1B","BARX2","IRF9","TBR1","BARX1","NFKBIZ","NSD2","NR4A2","NEUROD6")
+p <- plot_tf_network(net = net, selected_sources = tf_genes)
+p
+save_plot(p, filename = file.path(dir.results, "figures/Fig_4c"),formats = c("pdf"),  width = 20, height = 15)
+
+```
 
 
 
