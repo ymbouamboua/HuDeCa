@@ -1,0 +1,435 @@
+plot_theme <- function(theme_type = c("minimal", "bw", "classic", "test","void"), 
+                       font_size = 10, 
+                       xyval = TRUE, 
+                       x_angle = 0, 
+                       x_hjust = NULL,
+                       x_vjust = NULL, 
+                       x_lab = TRUE,
+                       y_lab = TRUE,
+                       xy_lab = TRUE,
+                       facet_title = "bold",
+                       legend_position = "right",
+                       legend_direction = "vertical"){ 
+  
+  # Validate theme selection
+  theme_type <- match.arg(theme_type)
+  
+  # Automatically set hjust and vjust based on x_angle
+  if (is.null(x_hjust) | is.null(x_vjust)) {
+    x_angle <- as.numeric(x_angle)  # Ensure it's numeric
+    
+    if (x_angle == 0) {
+      x_hjust <- 0.5
+      x_vjust <- 1
+    } else if (x_angle == 45) {
+      x_hjust <- 1
+      x_vjust <- 1
+    } else if (x_angle == 90) {
+      x_hjust <- 1
+      x_vjust <- 0.5
+    } else if (x_angle == 270) {
+      x_hjust <- 0
+      x_vjust <- 0.5
+    } else {
+      x_hjust <- 1
+      x_vjust <- 1
+    }
+  }
+  
+  # Base theme structure
+  base_theme <- theme(
+    plot.title = element_text(hjust = 0.5, size = font_size+2, face = facet_title),
+    text = element_text(size = font_size, color = "black"), 
+    axis.title = element_text(face = "plain", size = font_size, color = "black"), 
+    axis.text = element_text(size = font_size, color = "black"), 
+    axis.text.x = element_text(angle = x_angle, 
+                               hjust = x_hjust, 
+                               vjust = x_vjust, 
+                               color = "black"), 
+    strip.text = element_text(face = "plain", color = "black"), 
+    legend.title = element_text(size = font_size),
+    legend.text  = element_text(size = font_size),
+    legend.position.inside = if (is.numeric(legend_position)) legend_position else NULL,
+    legend.position = if (!is.numeric(legend_position)) legend_position else NULL,
+    legend.justification = "center",
+    legend.direction = legend_direction,
+    legend.background = element_blank(),
+    legend.key.height = unit(0.3, 'cm'),
+    legend.key.width = unit(0.3, 'cm'),
+    legend.key = element_rect(colour = NA, fill = NA) 
+  )
+  
+  minimal_theme <- function(x) { 
+    min_thm <-  theme(
+      axis.line.x = element_line(colour = "grey", linewidth = 0.15),
+      panel.grid.major.x = element_line(colour = "grey", linewidth = 0.15),
+      panel.grid.minor.x = element_blank(),
+      panel.grid.major.y = element_line(colour = "grey", linewidth = 0.15),
+      panel.grid.minor.y = element_blank(),
+      axis.ticks.x = element_line(colour = "grey", linewidth = 0.15),
+      axis.ticks.y = element_line(colour = "grey", linewidth = 0.15)
+    )
+    return(min_thm)
+  } 
+
+  
+
+#' Summarize Seurat Object Metadata
+#'
+#' This function summarizes metadata from a Seurat object and generates a bar plot 
+#' for visualization. It allows grouping and conditioning by metadata columns, 
+#' supports color customization, and provides options for reordering bars.
+#'
+#' @param object A Seurat object containing single-cell RNA-seq data.
+#' @param group.by A string specifying the metadata column to group by (default: "sample").
+#' @param condition.by A string specifying a second metadata column for conditional grouping (default: NULL).
+#' @param pal.setup A string specifying the color palette from RColorBrewer (default: "Set1").
+#' @param custom.colors A vector of custom colors to use instead of the default palette (default: NULL).
+#' @param use.discrete.colors Logical; if TRUE, uses discrete colors from Set1 (default: FALSE).
+#' @param angle.x An integer specifying the angle of x-axis labels (default: 90).
+#' @param vjust.x Vertical justification of x-axis labels (default: NULL).
+#' @param hjust.x Horizontal justification of x-axis labels (default: NULL).
+#' @param x.title A string for the x-axis title (default: same as `group.by`).
+#' @param remove.axis.x.text Logical; if TRUE, removes x-axis text (default: FALSE).
+#' @param reorder.bars Logical; if TRUE, reorders bars based on a specified column (default: FALSE).
+#' @param reorder.column A string specifying the column to reorder bars by (default: NULL).
+#' @param plot.variable A string specifying the metric to plot: "total_counts", "total_transcripts", 
+#'  "mean_transcripts", "median_transcripts", or "proportion" (default: "total_counts").
+#' @param title A string specifying the plot title (default: same as `plot.variable`).
+#' @param legend Logical; if FALSE, removes the legend (default: TRUE).
+#' @param text.size An integer specifying the text size in the plot (default: 10).
+#'
+#' @return A list containing:
+#'   \item{summary_table}{A summary table with calculated statistics.}
+#'   \item{plot}{A ggplot2 object representing the bar plot.}
+#'
+#' @import Seurat dplyr ggplot2 RColorBrewer
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#'   result <- Summarize_Seurat(object = seurat_obj, group.by = "cell_type", plot.variable = "total_counts")
+#'   print(result$plot)
+#' }
+Summarize_Seurat <- function(object, 
+                             group.by = "sample",
+                             assay = "RNA",
+                             slot = "counts",
+                             condition.by = NULL,  
+                             pal.setup = "Set1",
+                             custom.colors = NULL,
+                             use.discrete.colors = FALSE,
+                             theme_type = "classic", 
+                             x_angle = 45, 
+                             x.title = group.by,
+                             remove.axis.x.text = FALSE,
+                             reorder.bars = FALSE,
+                             reorder.column = NULL,
+                             plot.variable = c("total_transcripts", "mean_transcripts", "median_transcripts", 
+                                               "num_expressed_genes", "mean_genes_per_cell", "num_cells"),
+                             plot.title = plot.variable,
+                             legend = TRUE,
+                             legend.title = NULL,
+                             legend.key.size = 0.3,
+                             legend.position = "right",
+                             legend.ncol = 1,
+                             legend.alpha = 1,
+                             text.size = 10,
+                             remove.x.labels = FALSE,
+                             remove.x.title = FALSE,
+                             remove.y.title = FALSE,
+                             y.title = NULL) {
+  
+  # Load required libraries
+  require(Seurat)
+  require(dplyr)
+  require(ggplot2)
+  require(RColorBrewer)
+  
+  # Validate the plotting method choice
+  plot.variable <- match.arg(plot.variable)
+  
+  # Extract metadata and gene expression matrix
+  metadata <- object@meta.data
+  gene_counts <- object[[assay]][slot]
+  
+  # Ensure group.by exists
+  if (!group.by %in% colnames(metadata)) {
+    stop(paste("The specified group.by column", group.by, "does not exist in the Seurat object's metadata."))
+  }
+  
+  # Ensure condition.by exists if provided
+  if (!is.null(condition.by) && !condition.by %in% colnames(metadata)) {
+    stop(paste("The specified condition.by column", condition.by, "does not exist in the Seurat object's metadata."))
+  }
+  
+  # Compute expressed genes per cell
+  expressed_genes_per_cell <- Matrix::colSums(gene_counts > 0)  # Number of genes expressed per cell
+  metadata$num_expressed_genes <- expressed_genes_per_cell
+  
+  # Group data
+  if (!is.null(condition.by)) {
+    summary_stats <- metadata %>%
+      dplyr::group_by(!!sym(group.by), !!sym(condition.by)) %>%
+      dplyr::summarise(
+        total_counts = dplyr::n(),  
+        total_transcripts = sum(nCount_RNA),  
+        mean_transcripts = mean(nCount_RNA),  
+        median_transcripts = median(nCount_RNA),  
+        num_expressed_genes = sum(num_expressed_genes),  
+        mean_genes_per_cell = mean(num_expressed_genes),  
+        .groups = 'drop'  
+      ) %>%
+      dplyr::group_by(!!sym(group.by)) %>%
+      dplyr::mutate(proportion = total_counts / sum(total_counts)) %>%  
+      dplyr::ungroup()
+  } else {
+    summary_stats <- metadata %>%
+      dplyr::group_by(!!sym(group.by)) %>%
+      dplyr::summarise(
+        total_counts = dplyr::n(),  
+        total_transcripts = sum(nCount_RNA),  
+        mean_transcripts = mean(nCount_RNA),  
+        median_transcripts = median(nCount_RNA),  
+        num_expressed_genes = sum(num_expressed_genes),  
+        mean_genes_per_cell = mean(num_expressed_genes),  
+        .groups = 'drop'  
+      )
+  }
+  
+  # Add the number of cells per group (corrected)
+  num_cells_per_group <- metadata %>%
+    dplyr::group_by(!!sym(group.by)) %>%
+    dplyr::summarise(num_cells = n(), .groups = 'drop')
+  summary_stats <- left_join(summary_stats, num_cells_per_group, by = group.by)
+  
+  # Ensure plot.variable exists
+  if (!(plot.variable %in% colnames(summary_stats))) {
+    stop(paste("The specified plot.variable", plot.variable, "does not exist in the summary statistics table."))
+  }
+  
+  # Define colors
+  unique_groups <- unique(summary_stats[[ifelse(is.null(condition.by), group.by, condition.by)]])
+  num_groups <- length(unique_groups)
+  
+  if (!is.null(custom.colors)) {
+    if (length(custom.colors) < num_groups) {
+      stop(paste("Insufficient colors in custom.colors. Needed:", num_groups, "Provided:", length(custom.colors)))
+    }
+    colors_to_use <- custom.colors
+  } else if (use.discrete.colors) {
+    colors_to_use <- colorRampPalette(RColorBrewer::brewer.pal(9, "Set1"))(num_groups)
+  } else {
+    colors_to_use <- colorRampPalette(RColorBrewer::brewer.pal(min(9, num_groups), pal.setup))(num_groups)
+  }
+  
+  # Reorder bars globally if required
+  if (reorder.bars) {
+    if (is.null(reorder.column)) {
+      reorder.column <- plot.variable  # Default to reordering by the plot variable
+    }
+    if (!reorder.column %in% colnames(summary_stats)) {
+      stop(paste("The specified reorder.column", reorder.column, "does not exist in the summary statistics table."))
+    }
+    
+    # Ensure reorder.column is evaluated correctly
+    summary_stats <- summary_stats %>%
+      dplyr::mutate(!!reorder.column := as.numeric(summary_stats[[reorder.column]])) %>%
+      dplyr::arrange(dplyr::desc(!!sym(reorder.column))) %>%
+      dplyr::mutate(!!sym(group.by) := factor(!!sym(group.by), levels = unique(!!sym(group.by))))
+  }
+  
+  # Create base bar plot
+  p <- ggplot(summary_stats, aes(x = !!sym(group.by), y = !!sym(plot.variable))) +
+    geom_bar(stat = "identity", position = "stack", color = "black", size = 0.3) +  
+    plot_theme(theme_type = theme_type, x_angle = x_angle, font_size = text.size) +
+    theme(legend.position = legend.position,
+          legend.key.size = unit(legend.key.size, "cm")) +
+    guides(color = guide_legend(ncol = legend.ncol, alpha = legend.alpha, title = legend.title)) +
+    labs(title = plot.title, y = plot.variable, x = x.title, colour = paste(legend.title)) 
+  
+  # Add fill aesthetic
+  if (!is.null(condition.by)) {
+    p <- p + aes(fill = !!sym(condition.by)) + scale_fill_manual(values = colors_to_use, name = legend.title)
+  } else {
+    p <- p + aes(fill = !!sym(group.by)) + scale_fill_manual(values = colors_to_use, name = legend.title)
+  }
+  
+  if (remove.x.title) {
+    p <- p + theme(axis.title.x = element_blank())
+  }
+  
+  if (remove.y.title) {
+    p <- p + theme(axis.title.y = element_blank())
+  }
+  
+  if (remove.x.labels) {
+    p <- p + theme(axis.text.x = element_blank(),
+                   axis.ticks.x = element_blank())
+  }
+  
+  if (!is.null(y.title)) {
+    p <- p + ylab(y.title)
+  }
+  
+  # Hide legend if specified
+  if (!legend) {
+    p <- p & NoLegend()
+  }
+  
+  # Return results
+  return(list(summary_table = summary_stats, plot = p))
+}
+
+
+#' Plot Cell Fractions Over Time
+#'
+#' This function creates various types of visualizations to display the distribution 
+#' of cell types over time using Seurat metadata.
+#'
+#' @param seurat_obj A Seurat object containing cell metadata.
+#' @param x.col Character. The column name in metadata representing the x-axis (e.g., "Age").
+#' @param fill.col Character. The column name in metadata representing cell types (e.g., "CellType").
+#' @param plot.type Character. Type of plot to generate. Choose from:
+#'   - "stacked_area" (default)
+#'   - "stacked_bar"
+#'   - "grouped_bar"
+#'   - "point_smooth"
+#'   - "heatmap"
+#'   - "ridgeline"
+#'   - "line"
+#' @param text.size Numeric. Text size for axis labels and titles (default: 10).
+#' @param legend.title Character. Custom title for the legend (default: NULL).
+#' @param legend.position Character. Position of legend ("right", "bottom", "top", "left") (default: "right").
+#' @param legend.ncol Numeric. Number of columns in the legend (default: 1).
+#' @param custom.colors Character vector. Custom colors for cell types (default: NULL).
+#' @param x.title Character. Custom x-axis title (default: same as `x.col`).
+#' 
+#' @return A ggplot object.
+#' @import ggplot2 dplyr RColorBrewer ggridges scales
+#' @export
+#' 
+#' @examples
+#' # Example usage:
+#' Plot_Cell_Fractions(seurat_obj, plot.type = "ridgeline")
+#' Plot_Cell_Fractions(seurat_obj, plot.type = "stacked_area", text.size = 12)
+Plot_Cell_Fractions <- function(seurat_obj, 
+                                x.col = "Age", 
+                                fill.col = "CellType",
+                                plot.type = "stacked_area",
+                                text.size = 10,
+                                pt.size = 2,
+                                line.size = 0.5,
+                                legend.title = NULL,
+                                legend.position = "right",
+                                legend.ncol = 1,
+                                custom.colors = NULL,
+                                x.title = x.col
+) {
+  
+  # Load necessary libraries
+  library(ggplot2)
+  library(dplyr)
+  library(RColorBrewer)
+  library(ggridges)
+  library(scales)
+  
+  # Ensure metadata contains the required columns
+  metadata <- seurat_obj@meta.data %>%
+    dplyr::select(all_of(c(x.col, fill.col))) %>%
+    dplyr::group_by(!!sym(x.col), !!sym(fill.col)) %>%
+    dplyr::summarise(count = dplyr::n(), .groups = "drop") %>%
+    dplyr::group_by(!!sym(x.col)) %>%
+    dplyr::mutate(fraction = count / sum(count)) %>%
+    dplyr::ungroup()
+  
+  # Ensure x.col is numeric
+  metadata[[x.col]] <- as.numeric(as.character(metadata[[x.col]]))
+  
+  # Define colors
+  num_categories <- length(unique(metadata[[fill.col]]))
+  if (is.null(custom.colors)) {
+    custom.colors <- colorRampPalette(RColorBrewer::brewer.pal(min(9, num_categories), "Set3"))(num_categories)
+  }
+  
+  # Create the plot based on plot type
+  if (plot.type == "stacked_area") {
+    p <- ggplot(metadata, aes(x = !!sym(x.col), y = fraction, fill = !!sym(fill.col))) +
+      geom_area(position = "stack", alpha = 1, colour = "black", size = 0.2) +
+      scale_y_continuous(labels = scales::percent) +
+      scale_fill_manual(values = custom.colors, name = legend.title) +
+      labs(x = x.title, y = "Fraction of cells") +
+      theme_classic()
+  }
+  
+  else if (plot.type == "stacked_bar") {
+    p <- ggplot(metadata, aes(x = !!sym(x.col), y = fraction, fill = !!sym(fill.col))) +
+      geom_bar(stat = "identity", position = "fill", colour = "black", size = 0.2) +
+      scale_y_continuous(labels = scales::percent) +
+      scale_fill_manual(values = custom.colors, name = legend.title) +
+      labs(x = x.title, y = "Fraction of cells") +
+      theme_classic()
+  }
+  
+  else if (plot.type == "grouped_bar") {
+    p <- ggplot(metadata, aes(x = !!sym(x.col), y = count, fill = !!sym(fill.col))) +
+      geom_bar(stat = "identity", position = "dodge", colour = "black", size = 0.2) +
+      scale_fill_manual(values = custom.colors, name = legend.title) +
+      labs(x = x.title, y = "Cell Count") +
+      theme_classic()
+  }
+  
+  else if (plot.type == "point_smooth") {
+    p <- ggplot(metadata, aes(x = !!sym(x.col), y = fraction, color = !!sym(fill.col))) +
+      geom_point(size = pt.size) +
+      geom_smooth(method = "loess", se = FALSE, size = line.size) +
+      scale_y_continuous(labels = scales::percent) +
+      scale_color_manual(values = custom.colors, name = legend.title) +
+      labs(x = x.title, y = "Fraction of cells") +
+      theme_classic()
+  }
+  
+  else if (plot.type == "heatmap") {
+    p <- ggplot(metadata, aes(x = !!sym(x.col), y = !!sym(fill.col), fill = fraction)) +
+      geom_tile() +
+      viridis::scale_fill_viridis_c(option = "plasma") +
+      labs(x = x.title, y = "Cell type", fill = "Fraction of cells") +
+      theme_minimal()
+  }
+  
+  else if (plot.type == "ridgeline") {
+    p <- ggplot(metadata, aes(x = !!sym(x.col), y = !!sym(fill.col), height = fraction, fill = !!sym(fill.col))) +
+      geom_density_ridges(stat = "identity", scale = 1.5, alpha = 0.7) +
+      scale_fill_manual(values = custom.colors, name = legend.title) +
+      labs(x = x.title, y = "Cell type", fill = "Fraction of cells") +
+      theme_classic()
+  } else if (plot.type == "line") {
+    p <- ggplot(metadata, aes(x = !!sym(x.col), y = fraction, color = !!sym(fill.col), group = !!sym(fill.col))) +
+      geom_line(size = line.size) + 
+      geom_point(size = pt.size) +
+      scale_y_continuous(labels = scales::percent) +
+      scale_color_manual(values = custom.colors, name = legend.title) +
+      labs(x = x.title, y = "Fraction of cells") +
+      theme_classic()
+  } else {
+    stop("Invalid plot type. Choose from: stacked_area, stacked_bar, grouped_bar, point_smooth, heatmap, line, ridgeline.")
+  }
+  
+  # Adjust theme settings
+  p <- p +
+    theme(
+      plot.title = element_text(size = text.size + 2, face = "bold", hjust = 0.5),
+      axis.title = element_text(size = text.size),
+      axis.text = element_text(size = text.size, color = "black"),
+      legend.key.size = unit(0.3, 'cm'),
+      legend.position = legend.position,
+      legend.spacing.y = unit(0.05, 'cm'),  # Reduce space between legend items
+      legend.margin = margin(t = -10, b = 0, unit = 'pt') # Reduce space between plot and legend
+    ) +
+    guides(fill = guide_legend(
+      ncol = legend.ncol, 
+      override.aes = list(color = "black", size = 0.2) 
+    ))
+  
+  return(p)
+}
