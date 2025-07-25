@@ -754,6 +754,24 @@ save_plot(p, filename = file.path(dir.results, "figures/Fig_4c"),formats = c("pd
 
 ```
 
+# Figure 6
+## Fig 6a
+
+```{r fig.width=4, fig.height=4}
+
+Idents(obj) <- "ann_level_2"
+sub <- Seurat_Subset(obj, cluster_id = c("INPs", "iOSNs","mOSNs"), ndims = 5, min.dist = 1)
+DefaultAssay(sub) <- "RNA"
+ORs <- readxl::read_excel(file.path(dir.main, "data/ORs/401_ORs.xlsx"))
+genes <- intersect(ORs$Gene_name, rownames(sub@assays$RNA@counts))
+genes <- c(genes, "VN1R1", "VN1R2")
+length(genes)
+
+p <- plot_gene_set_expression(object = sub,  features = genes, threshold = 0.5, plot_log = T, legend_position = c(0.30,0.9), theme_type = "minimal")
+p
+save_plot(p, filename = file.path(dir.results, "figures/Fig_6a"), width = 4, height = 4, formats = c("pdf"))
+
+```
 
 
 
