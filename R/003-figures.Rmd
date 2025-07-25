@@ -797,6 +797,60 @@ save_plot(p, filename = file.path(dir.results, "figures/Fig_6b"),formats = c("pd
 
 ```
 
+## Fig_6c
+
+```{r fig.width=4, fig.height=4.2}
+
+sub <- Seurat_Subset(obj, cluster_id = c("iOSNs","mOSNs"), ndims = 4, min.dist = 2)
+
+result <- analyze_OR_distribution(seurat_obj = sub, gene_list = ORs$Gene_name, meta_column = "ann_level_2", expr_cutoff = 0,
+  fill_colors = c("iOSNs" = "#f05b43", "mOSNs" = "#33b8ff"), legend_pos = c(0.80, 0.90)
+)
+result$plot
+save_plot(result$plot, filename = file.path(dir.results, "figures/Fig_5c"),formats = c("pdf"),  width = 3.5, height = 4.2)
+
+```
+
+
+## Fig 6d
+
+```{r fig.width=5, fig.height=4}
+
+# OSNs
+Idents(obj) <- "ann_level_2"
+sub <- Seurat_Subset(obj, cluster_id = c("iOSNs","mOSNs"), ndims = 4, min.dist = 2)
+OR_family <- readxl::read_excel(file.path(dir.main, "data/ORs/OR_family.xlsx"))
+genes <- intersect(OR_family$gene_name, rownames(sub@assays$RNA@counts))
+filt <- subset(sub, features = genes)
+expression_matrix <- as.matrix(filt@assays$RNA@counts)
+total_counts <- rowSums(expression_matrix)
+selected_genes <- names(total_counts[total_counts > 0])
+filt <- subset(filt, features = selected_genes)
+OR_family <- subset(OR_family, gene_name %in% rownames(filt))
+
+df <- OR_family %>% 
+  dplyr::group_by(family, class) %>% 
+  dplyr::summarise(count = n())
+
+df$family <- factor(df$family)
+df$class <- factor(df$class)
+
+p <- ggplot(df, aes(x = family, y = count, fill = class)) +
+  geom_col(stat = "identity", position=position_dodge()) +
+  labs(x = "OR families", y = "number of ORs", title = "") +
+  guides(fill=guide_legend(title="Class")) +
+   plot_theme(theme_type = "minimal", 
+               legend_position = c(0.9, 0.9), 
+               font_size = 10, x_angle = 0) +
+  scale_fill_manual(values = c("#BCB82C","#20679B")) 
+
+print(p)
+save_plot(p, filename = file.path(dir.results, "figures/Fig_6d"),formats = c("pdf"),  width = 5, height = 4)    
+
+OR_family <- OR_family[,c("gene_name","family","class")]
+write.table(OR_family, file.path(dir.results, "tables/OR_family.csv"), sep = ";", row.names = F, quote = F)
+
+```
 
 
 
