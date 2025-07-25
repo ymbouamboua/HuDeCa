@@ -773,6 +773,30 @@ save_plot(p, filename = file.path(dir.results, "figures/Fig_6a"), width = 4, hei
 
 ```
 
+## Fig 6b
+```{r fig.width=3.5, fig.height=4}
+
+cell_levels <- c("Olf. HBCs", "Microvillars","Sustentaculars","GBCs","INPs","iOSNs","mOSNs")
+sample_levels <- c("PCW7","PCW8", "PCW10","PCW12")
+ORs <- readxl::read_excel(file.path(dir.main, "data/ORs/401_ORs.xlsx"))
+sub <- Seurat_Subset(obj, cluster_id = c("Olf. HBCs", "Microvillars","Sustentaculars","GBCs","INPs","iOSNs","mOSNs"))
+
+p <- plot_gene_set_transcripts(
+  seurat_obj = sub,
+  gene_list = ORs$Gene_name,
+  group_var = "ann_level_2",
+  fill_var = "PCW",
+  group_levels = cell_levels,
+  fill_levels = sample_levels,
+  legend_position = c(0.80, 0.20),
+  fill_colors = custom_colors$PCW
+)
+
+print(p)
+save_plot(p, filename = file.path(dir.results, "figures/Fig_6b"),formats = c("pdf"),  width = 3.5, height = 4)    
+
+```
+
 
 
 
