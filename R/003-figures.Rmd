@@ -866,4 +866,129 @@ write.table(OR_family, file.path(dir.results, "tables/OR_family.csv"), sep = ";"
 ```
 
 
+# Supplementary figures
+
+## Extended data figures 1
+
+## Extended data figures 2
+
+### Fig S2b
+
+```{r fig.width=16, fig.height=16, warning=F, message=F}
+
+p <- Feature_Plot(obj, features = c("DCN","SGCZ","ITGA8",  # Mesenchyme
+                                    "RUNX2","ANO5", # osteoblasts
+                                    "ACAN","COL9A1", # cartilage
+                                    "PDGFRB","TRPC6", # stromal
+                                    "GRHL2", "TP63","CFTR", # epithelial
+                                    "DCX", "GAP43","TUBB3", # neuron
+                                    "PECAM1", "VWF", # endothelial
+                                    "PROX1","STAB2", # lymphatic
+                                    "MYO18B","MEGF10", # myocytes
+                                    "CDH19", "SOX10", # glial
+                                    "PTPRC","DOCK2" # immune
+                               ), no_axes = T, order = F, merge_legend = T)
+p
+save_plot(p, filename = file.path(dir.results, "figures/Fig_S2b"),  width = 16, height = 16, formats = c("pdf"))
+
+```
+
+## Extended data figures 3
+
+
+## Extended data figures 4
+### Fig S4a
+
+```{r}
+
+# Load Seurat's built-in cell cycle gene lists
+s.genes <- Seurat::cc.genes$s.genes
+g2m.genes <- Seurat::cc.genes$g2m.genes
+postm.genes <- c("DCX", "TUBB3", "MAP2", "RBFOX3", "NEUROD1", "SOX9", "ELAVL4") 
+
+# Run Cell Cycle Scoring
+obj <- CellCycleScoring(object = obj, 
+                        s.features = s.genes, 
+                        g2m.features = g2m.genes, 
+                        set.ident = TRUE)
+
+# Calculate PostM Score based on PostM gene expression
+obj$PostM.Score <- Seurat::FetchData(obj, vars = postm.genes) %>% rowMeans()
+
+# Define PostM threshold (75th percentile of PostM score)
+threshold <- quantile(obj$PostM.Score, 0.75)  
+
+# Identify Non-Cycling Cells (Low UMI & low cycle scores)
+nc_threshold <- 1000  # Adjust as needed
+obj$NonCycling <- obj$S.Score < 0.2 & obj$G2M.Score < 0.2 & obj$nFeature_RNA < nc_threshold
+
+# Update Cell Cycle Phases
+obj$Phase <- ifelse(obj$Phase == "G1" & obj$PostM.Score > threshold, "PostM", obj$Phase)
+obj$Phase <- ifelse(obj$NonCycling, "Non-Cycling", obj$Phase)  # Assign Non-Cycling
+
+# Convert to factor with correct order
+obj$Phase <- factor(obj$Phase, levels = c("G1", "S", "G2M", "PostM","Non-Cycling"))
+
+p <- DimPlot(obj, group.by = "Phase", cols = custom_colors$phase)
+p
+save_plot(p, filename = file.path(dir.results, "figures/Fig_S4a"),  width = 7, height = 5, formats = c("pdf"))
+
+```
+
+### Fig S4b
+
+```{r fig.width=3, fig.height=3}
+
+p <- Plot_Cell_Fractions(obj, x.col = "age", fill.col = "Phase",legend.title = "Phases", line.size = 1,
+                  custom.colors = custom_colors$phase, x.title = "Age (PCW)", plot.type = "line", legend.position = "none")
+p
+save_plot(p, filename = file.path(dir.results, "figures/Fig_S4b"),formats = c("pdf"),  width = 3, height = 3)
+
+```
+
+### Fig S4c
+
+```{r fig.width=14, fig.height=4, warning=F}
+
+p <- FeaturePlot(obj, features = c("TOP2A","MKI67","CENPF"), ncol = 3)
+p
+save_plot(p, filename = file.path(dir.results, "figures/Fid_S4c.1"),  width = 14, height = 4, formats = c("pdf"))
+
+```
+
+```{r fig.width=14, fig.height=4, warning=F}
+
+p <- FeaturePlot(obj, features = c("S.Score","G2M.Score","PostM.Score"))
+p
+save_plot(p, filename = file.path(dir.results, "figures/Fid_S4c.2"),  width = 14, height = 4, formats = c("pdf"))
+
+```
+
+
+
+### Fig S4d
+
+```{r fig.width=8, fig.height=6, warning=F}
+
+p <- StackedVlnPlot(object = obj, group.by = "ann_level_2_order", cols = custom_colors$ann_level_2, features = c("S.Score","G2M.Score","PostM.Score"))
+p
+save_plot(p, file.path(dir.results, "figures/Fig_S4d"), formats = c("pdf"),width = 8, height = 6)
+
+```
+
+### Fig S4e
+
+
+```{r fig.width=8, fig.height=3, warning=F}
+
+p <- plot_props(data = obj, x = "ann_level_2_order", y = "Phase", plot_type = "bar", prop = T, stack = T,font_size = 10,
+           prop_multi = F, theme_type = "minimal", legend = F, colors = custom_colors$phase, x_title = "", x_angle = 45)
+
+p
+save_plot(p, filename = file.path(dir.results, "figures/Fig_S4e"),formats = c("pdf"),  width = 8, height = 3)
+
+```
+
+
+## Extended data figures 5
 
