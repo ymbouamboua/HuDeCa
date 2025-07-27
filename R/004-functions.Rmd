@@ -788,3 +788,241 @@ plot_unique_gene_per_cell <- function(seurat_obj, gene_list, font_size = 10, the
   return(list(Plot = p, Expression_Table = gene_expr_table))
 }
 
+#' Test variable genes along pseudotime using GAM (Generalized Additive Model)
+#'
+#' This function tests the association between gene expression and pseudotime for the most variable genes,
+#' using a generalized additive model (GAM) on a subset of selected cell types.
+#'
+#' @param seurat_obj A Seurat object containing expression data.
+#' @param sce_obj A SingleCellExperiment object containing expression data and pseudotime.
+#' @param pseudotime_col Name of the column containing pseudotime values in \code{sce_obj}. Default is "slingPseudotime_1".
+#' @param annotation_level Name of the cell type annotation column. Default is "ann_level_2".
+#' @param selected_celltypes Vector of cell types to include in the analysis. Default is c("Olf. HBCs", "GBCs", "preOSNs", "iOSNs", "mOSNs").
+#' @param n_variable_genes Number of variable genes to test. Default is 500.
+#' @param verbose Whether to display progress messages. Default is TRUE.
+#'
+#' @return A list containing:
+#' \describe{
+#'   \item{sce}{The subsetted SCE object.}
+#'   \item{result}{A sorted data.frame of tested genes with p-value and q-value.}
+#'   \item{ptime}{Vector of pseudotime values used.}
+#'   \item{lineage_cells}{Names of cells included in the analysis.}
+#' }
+#'
+#' @details
+#' Genes are individually tested for association with pseudotime using a GAM (gam::gam).
+#' P-values are adjusted using the FDR method.
+#'
+#' @import gam
+#' @import SingleCellExperiment
+#' @import Seurat
+#' @importFrom tibble tibble
+#' @importFrom dplyr arrange
+#' @export
+#' 
+test_pseudotime_genes_gam <- function(seurat_obj,
+                                      sce_obj,
+                                      pseudotime_col = "slingPseudotime_1",
+                                      annotation_level = "ann_level_2",
+                                      selected_celltypes = c("Olf. HBCs", "GBCs", "preOSNs", "iOSNs", "mOSNs"),
+                                      n_variable_genes = 500,
+                                      verbose = TRUE) {
+  require(gam)
+  require(SingleCellExperiment)
+  require(Seurat)
+  
+  # Subset the SCE by selected annotation
+  if (verbose) message("Subsetting SCE object by selected cell types...")
+  selected_cells <- sce_obj[[annotation_level]] %in% selected_celltypes
+  subset_sce <- sce_obj[, selected_cells]
+  
+  # Extract pseudotime and keep only cells in the lineage
+  if (verbose) message("Extracting pseudotime values and filtering NA...")
+  ptime <- subset_sce[[pseudotime_col]]
+  lineage_cells <- colnames(subset_sce)[!is.na(ptime)]
+  ptime <- ptime[!is.na(ptime)]
+  
+  # Match Seurat object to same cell subset
+  if (verbose) message("Subsetting Seurat object to match cell types...")
+  Idents(seurat_obj) <- annotation_level
+  seurat_sub <- Seurat_Subset(seurat_obj, cluster_id = selected_celltypes)
+  seurat_sub <- Filter_Unwanted_Genes(seurat_sub, scale_data = TRUE)
+  
+  # Select top variable genes
+  if (verbose) message(paste0("Selecting top ", n_variable_genes, " variable genes..."))
+  genes_to_test <- head(VariableFeatures(seurat_sub), n_variable_genes)
+  
+  # Get logcounts from SCE
+  if (verbose) message("Extracting log-normalized counts...")
+  cnts <- logcounts(subset_sce)[genes_to_test, lineage_cells]
+  
+  # Fit GAM for each gene
+  if (verbose) message("Fitting GAM models...")
+  gam_pval <- apply(cnts, 1, function(z) {
+    d <- data.frame(z = z, ptime = ptime)
+    tmp <- suppressWarnings(gam::gam(z ~ gam::lo(ptime), data = d))
+    p <- summary(tmp)[4][[1]][1, 5]
+    p
+  })
+  
+  gam_pval <- na.omit(gam_pval)
+  
+  # Return results as a sorted data frame
+  if (verbose) message("Returning sorted results...")
+  # result <- data.frame(
+  #   gene = names(gam_pval),
+  #   pval = gam_pval
+  # )
+  
+  result <- tibble(id = names(gam_pval), pvals = gam_pval, qval = p.adjust(gam_pval, method = "fdr")) %>%
+  arrange(qval)
+  
+  #result <- result[order(result$pval), ]
+  return(list("sce" = subset_sce, "result" = result, "ptime" = ptime, "lineage_cells" = lineage_cells))
+}
+
+
+#' Plot a heatmap of gene expression along pseudotime
+#'
+#' This function generates a heatmap of scaled gene expression for a set of genes along pseudotime,
+#' with cell type and pseudotime annotations, using the ComplexHeatmap package.
+#'
+#' @param sce A SingleCellExperiment object containing expression data.
+#' @param pseudotime_col Name of the column in \code{colData(sce)} with pseudotime values. Default is "slingPseudotime_1".
+#' @param annotation_col Name of the column in \code{colData(sce)} with cell type annotations. Default is "ann_level_2".
+#' @param lineage_cells Character vector of cell names to include in the heatmap.
+#' @param ptime_order Character vector specifying the order of cells along pseudotime.
+#' @param gene_list Character vector of gene names to include in the heatmap.
+#' @param celltype_order Character vector specifying the order of cell types in the annotation.
+#' @param celltype_colors Named vector of colors for each cell type.
+#' @param pseudotime_palette Name of the RColorBrewer palette for pseudotime annotation. Default is "YlGnBu".
+#' @param zscore_limits Numeric vector of length 3 for the color scale limits (e.g., c(-2, 0, 2)).
+#' @param output_pdf File path to save the heatmap as a PDF. If NULL, the plot is shown in the current device.
+#' @param show_legend Logical, whether to show the heatmap legend. Default is TRUE.
+#' @param show_annotation_legend Logical, whether to show the annotation legend. Default is TRUE.
+#' @param cluster_rows Logical, whether to cluster the rows (genes). Default is TRUE.
+#' @param font_size Integer, font size for row names and annotations. Default is 10.
+#' @param pdf_width Numeric, width of the PDF output (if used). Default is 6.
+#' @param pdf_height Numeric, height of the PDF output (if used). Default is 10.
+#' @param plot_title Optional title for the heatmap.
+#'
+#' @return No return value. The function generates a heatmap plot, either displayed or saved as a PDF.
+#'
+#' @details
+#' The function scales gene expression (row-wise Z-score), orders cells by pseudotime, and annotates columns by cell type and pseudotime.
+#' Colors and clustering options are customizable.
+#'
+#' @import ComplexHeatmap
+#' @import circlize
+#' @import RColorBrewer
+#' @import SingleCellExperiment
+#' @export
+#' 
+plot_heatmap_pseudotime <- function(sce,
+                                    pseudotime_col = "slingPseudotime_1",
+                                    annotation_col = "ann_level_2",
+                                    lineage_cells,
+                                    ptime_order,
+                                    gene_list,
+                                    celltype_order,
+                                    celltype_colors,
+                                    pseudotime_palette = "YlGnBu",
+                                    zscore_limits = c(-2, 0, 2),
+                                    output_pdf = NULL,
+                                    show_legend = TRUE,
+                                    show_annotation_legend = TRUE,
+                                    cluster_rows = TRUE,
+                                    font_size = 10,
+                                    pdf_width = 6,
+                                    pdf_height = 10,
+                                    plot_title = NULL) {
+  
+  require(ComplexHeatmap)
+  require(circlize)
+  require(RColorBrewer)
+  require(SingleCellExperiment)
+
+  # Filter and order expression matrix
+  expr_mat <- logcounts(sce)[gene_list, lineage_cells, drop = FALSE]
+  expr_mat <- expr_mat[, ptime_order]
+  expr_mat_scaled <- as.matrix(t(scale(t(expr_mat))))  # Row-wise Z-score
+
+  # Annotations
+  annotations <- as.data.frame(colData(sce)[lineage_cells, c(pseudotime_col, annotation_col)])
+  colnames(annotations) <- c("Pseudotime", "Cell types")
+  annotations <- annotations[colnames(expr_mat_scaled), ]
+  rownames(annotations) <- colnames(expr_mat_scaled)
+  annotations$`Cell types` <- factor(annotations$`Cell types`, levels = celltype_order)
+
+  # Pseudotime color function
+  ptime_vector <- annotations$Pseudotime
+  if (any(is.na(ptime_vector))) {
+    stop("Pseudotime vector contains NA values. Filter or impute them before plotting.")
+  }
+  ptime_breaks <- seq(min(ptime_vector), max(ptime_vector), length.out = 100)
+  ptime_colors <- colorRampPalette(rev(brewer.pal(n = 7, name = pseudotime_palette)))(100)
+  ptime_color_fun <- circlize::colorRamp2(ptime_breaks, ptime_colors)
+
+  # Annotation bar
+  top_annot <- HeatmapAnnotation(
+    "Cell types" = annotations$`Cell types`,
+    "Pseudotime" = annotations$Pseudotime,
+    col = list(
+      "Cell types" = celltype_colors,
+      "Pseudotime" = ptime_color_fun
+    ),
+    annotation_legend_param = list(
+      "Cell types" = list(ncol = 1, border = "black", legend_direction = "vertical"),
+      "Pseudotime" = list(border = "black")
+    ),
+    show_legend = show_annotation_legend,
+    annotation_name_gp = gpar(fontsize = font_size)
+  )
+
+  # Heatmap
+  ht <- ComplexHeatmap::Heatmap(expr_mat_scaled,
+                name = "Z-score",
+                show_column_names = FALSE,
+                show_row_names = TRUE,
+                cluster_rows = cluster_rows,
+                cluster_columns = FALSE,
+                show_row_dend = FALSE,
+                column_dend_reorder = FALSE,
+                col = colorRamp2(zscore_limits, c("blue", "white", "red")),
+                border = TRUE,
+                rect_gp = gpar(col = NA),
+                heatmap_legend_param = list(
+                  title = "Z-score",
+                  title_position = "topcenter",
+                  legend_direction = "horizontal",
+                  legend_height = unit(0.3, 'cm'), 
+                  legend_width = unit(3, 'cm'),
+                  #legend_height = unit(1, 'cm'),
+                  #legend_width = unit(2.7, 'cm'),
+                  border = 'black'),
+                row_names_gp = gpar(fontface = "italic", fontsize = font_size),
+                top_annotation = top_annot)
+
+  # Export or show with optional title
+  options(ComplexHeatmap.raster_device = NULL)
+  
+  if (!is.null(output_pdf)) {
+    pdf(output_pdf, useDingbats = FALSE, width = pdf_width, height = pdf_height)
+    ComplexHeatmap::draw(ht,
+                         use_raster = FALSE,
+                         raster_device = NULL,
+                         heatmap_legend_side = "bottom",
+                         annotation_legend_side = "right",
+                         column_title = plot_title,
+                         column_title_gp = gpar(fontsize = font_size + 2, fontface = "bold"))
+    dev.off()
+    
+  } else {
+    ComplexHeatmap::draw(ht,
+                         use_raster = FALSE,
+                         heatmap_legend_side = "bottom",
+                         annotation_legend_side = "right",
+                         column_title = plot_title,
+                         column_title_gp = gpar(fontsize = font_size + 2, fontface = "bold"))
+  }
+}
