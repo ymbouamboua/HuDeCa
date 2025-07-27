@@ -1016,11 +1016,8 @@ dev.off()
 
 Idents(obj) <- "ann_level_1"
 sub <- subset(obj, idents = "Olfactory epithelium", invert = T)
-idents <- levels(sub@meta.data[["sample"]])
-pseudo_rep_colors <- colorize(x = idents, theme = "inferno", n_colors = length(idents))
-
 p <- plot_cluster_percent(data = sub, label_size = 3, cluster_col = "ann_level_2_order", group_col = "PCW_order",sample_col = "sample", 
-group_colors = custom_colors$PCW, sample_colors = pseudo_rep_colors,legend = FALSE, multi_p = F,ncol = 7,x_angle = 45)
+group_colors = custom_colors$PCW,legend = FALSE, multi_p = F,ncol = 7,x_angle = 45)
 p
 save_plot(p, file.path(dir.results, "figures/Fig_S5b"), formats = c("pdf"),width = 12, height = 7)
 
