@@ -291,6 +291,19 @@ save_plot(p, filename = file.path(dir.results, "figures/Fig_3c"),  width = 8, he
 
 ```
 
+## Fig 3d
+
+```{r fig.width=10, fig.height=3, warning=F, message=F}
+
+Idents(obj) <- "ann_level_2"
+sub <- Seurat_Subset(obj, cluster_id = c("GBCs","INPs","iOSNs","mOSNs"), ndims = 5, min.dist = 1)
+
+p <- DimPlot(object = sub, group.by = "PCW_order", split.by = "PCW_order", labels = F, cols = custom_colors$PCW) + NoAxes() + NoLegend()
+p
+save_plot(p, filename = file.path(dir.results, "figures/Fig_3d"),formats = c("pdf"),  width = 10, height = 3) 
+
+```
+
 ## Fig 3e
 
 ```{r}
