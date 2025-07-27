@@ -1026,3 +1026,113 @@ plot_heatmap_pseudotime <- function(sce,
                          column_title_gp = gpar(fontsize = font_size + 2, fontface = "bold"))
   }
 }
+
+
+#' Generate a Correlation Heatmap and Text Summary
+#'
+#' This function creates a correlation heatmap for cell clusters based on average expression values 
+#' and provides a text summary describing the results.
+#'
+#' @param object A Seurat object containing the single-cell expression data.
+#' @param group.by A metadata variable to group cells by. Default is "seurat_clusters".
+#' @param fontsize Font size for the heatmap text. Default is 8.
+#'
+#' @return A list containing the heatmap object and a text summary.
+#' @examples
+#' # Example usage:
+#' # result <- Heatmap_Correlation(seurat_obj, group.by = "cell_type", fontsize = 10)
+#' # result$heatmap  # To visualize the heatmap
+#' # result$summary  # To view the text summary
+#'
+#' @export
+#' 
+plot_cluster_correlation <- function(object, 
+                                     group.by = "seurat_clusters",
+                                     assay = "RNA", 
+                                     slot = "data",  # Specify layer for Seurat v5
+                                     plot.title = "Heatmap correlation",
+                                     column_names_rot = 45,
+                                     fontsize = 8) {
+  
+  require(Seurat)
+  require(ComplexHeatmap)
+  require(RColorBrewer)
+  
+  # Ensure the assay exists in the object
+  # if (!(assay %in% Assays(object))) {
+  #   stop(paste("❌ Assay", assay, "not found in the Seurat object."))
+  # }
+  
+  # Set identity class based on the group.by column
+  if (!group.by %in% colnames(object@meta.data)) {
+    stop(paste("❌ Column", group.by, "not found in metadata."))
+  }
+  
+  Idents(object) <- object@meta.data[[group.by]]
+  
+  # Extract unique cluster identities
+  uniq <- unique(Idents(object))
+  
+  # Extract expression data
+  if (packageVersion("Seurat") >= "5.0.0") {
+    expr_data <- object[[assay]][slot] # Seurat v5 fix
+  } else {
+    expr_data <- GetAssayData(object, slot = slot, assay = assay)  # Seurat v4
+  }
+  
+  # Initialize an empty matrix with correct dimensions
+  mnmat <- matrix(NA, nrow = nrow(expr_data), ncol = length(uniq))
+  
+  # Iterate over each cluster and compute the average expression
+  for (i in seq_along(uniq)) {
+    cluster_cells <- WhichCells(object, idents = uniq[i])
+    
+    # ✅ Check if the cluster contains valid cells
+    valid_cells <- cluster_cells[cluster_cells %in% colnames(expr_data)]
+    
+    if (length(valid_cells) > 0) {
+      mnmat[, i] <- Matrix::rowMeans(expr_data[, valid_cells, drop = FALSE])
+    }
+  }
+  
+  colnames(mnmat) <- as.vector(uniq)
+  
+  # Compute Pearson correlation matrix
+  mat <- cor(mnmat, method = "pearson", use = "complete.obs")
+  
+  # Generate heatmap
+  ht <- Heatmap(
+    mat,
+    name = 'Pearson correlation',
+    #col = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100), # Red-Blue gradient
+    col = viridis::viridis(100),
+    border = "#8B8B8C",
+    rect_gp = gpar(col = "#8B8B8C"),
+    row_names_gp = gpar(fontsize = fontsize),  
+    column_names_gp = gpar(fontsize = fontsize, fontface = "plain"),
+    column_names_side = "bottom",
+    column_names_rot = column_names_rot,
+    cluster_rows = TRUE,
+    cluster_columns = TRUE,
+    show_row_names = TRUE,
+    show_column_names = TRUE,
+    show_column_dend = TRUE,
+    heatmap_legend_param = list(
+      title = 'Pearson correlation',
+      title_position = 'leftcenter-rot',
+      legend_height = unit(3.5, 'cm'),
+      legend_width = unit(0.5, 'cm'),
+      border = '#8B8B8C',
+      #legend_direction = 'horizontal',
+      labels_gp = gpar(fontsize = fontsize)
+    )
+  )
+  
+  # Draw heatmap with title
+  draw(ht, heatmap_legend_side = "right", annotation_legend_side = "right")
+  grid::grid.text(
+    plot.title,
+    x = 0.5, y = unit(1, "npc") - unit(2, "mm"),
+    gp = gpar(fontsize = fontsize + 2, fontface = "bold")
+  )
+}
