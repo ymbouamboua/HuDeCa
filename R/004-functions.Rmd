@@ -1136,3 +1136,170 @@ plot_cluster_correlation <- function(object,
     gp = gpar(fontsize = fontsize + 2, fontface = "bold")
   )
 }
+
+
+#' Plot Cluster Percentages
+#'
+#' This function generates a barplot or boxplot to visualize the percentage of 
+#' different cell clusters within groups and samples.
+#'
+#' @param data A `Seurat` object or a data frame containing metadata.
+#' @param cluster_col Character. Column name representing the cluster variable (default: "ann_level_3").
+#' @param group_col Character. Column name representing the grouping variable (default: "group").
+#' @param sample_col Character. Column name representing the sample variable (default: "sample").
+#' @param sample_order_col Character. Column name for ordering samples (default: "sample_order").
+#' @param sample_colors Named vector of colors for samples. If NULL, default colors are used.
+#' @param group_colors Named vector of colors for groups. If NULL, default colors are used.
+#' @param facet_ncol Integer. Number of columns for facet wrap (default: 10).
+#' @param fontsize Numeric. Font size for plot text (default: 10).
+#' @param show_contour Logical. Whether to show contour lines (default: TRUE).
+#' @param theme_type Character. Theme type for the plot (default: "minimal").
+#' @param plot_type Character. Either "barplot" or "boxplot" (default: "barplot").
+#' @param x_angle Numeric. Angle for x-axis labels (default: 0).
+#' @param check_normality Logical. If TRUE, performs normality checks (default: TRUE).
+#' @param show_pvalue Logical. If TRUE, adds p-values to the plot (default: TRUE).
+#' @param multi_p Logical. If TRUE, performs multiple comparisons (default: TRUE).
+#' @param pairwise_test Logical. If TRUE, performs pairwise statistical tests (default: FALSE).
+#' @param label Character. Label format for p-values ("p.signif" or "p.format", default: "p.signif").
+#' @param label_size Numeric. Font size for p-value labels (default: 4).
+#' @param legend Logical. Whether to display a legend (default: TRUE).
+#' @param legend_ncol Integer. Number of columns in the legend (default: 1).
+#' @param legend_title Character. Title for the legend (default: NULL).
+#' @param plot_title Character. Title of the plot (default: NULL).
+#' @param x_title Character. X-axis title (default: NULL).
+#' @param y_title Character. Y-axis title (default: NULL).
+#' @param ncol Integer. Number of columns for facet_wrap (default: 4).
+#'
+#' @return A `ggplot` object.
+#' @export
+#'
+#' @examples
+#' # Example usage with a Seurat object
+#' p <- plot_cluster_percent(data = seurat_object, group_col = "Condition")
+#' print(p)
+#'
+plot_cluster_percent <- function(data,
+                                 cluster_col = "ann_level_3",
+                                 group_col = "group",
+                                 sample_col = "sample",
+                                 sample_order_col = "sample_order",
+                                 sample_colors = NULL,
+                                 group_colors = NULL,
+                                 facet_ncol = 10,
+                                 fontsize = 10,
+                                 show_contour = TRUE,
+                                 theme_type = "minimal",
+                                 plot_type = "barplot",
+                                 x_angle = 0,
+                                 check_normality = TRUE,
+                                 show_pvalue = TRUE,
+                                 multi_p = TRUE,
+                                 pairwise_test = FALSE,
+                                 label = "p.signif", #p.format
+                                 label_size = 4,
+                                 legend = TRUE,
+                                 legend_ncol = 1,
+                                 legend_title = NULL,
+                                 plot_title = NULL,
+                                 x_title = NULL,
+                                 y_title = NULL,
+                                 ncol = 4
+) {
+  require(Seurat)
+  require(ggplot2)
+  require(ggpubr)
+  
+  if (inherits(data, "Seurat")) {
+    data <- data@meta.data
+  }
+  
+  aggr <- aggregate(data[[cluster_col]],
+                    by = list(data[[cluster_col]],
+                              data[[group_col]],
+                              data[[sample_col]]),
+                    FUN = length)
+  names(aggr) <- c("cluster", "group", "sample", "num")
+  aggr$sample <- as.character(aggr$sample)
+  
+  batch <- aggregate(data[[sample_col]],
+                     by = list(data[[sample_col]]),
+                     FUN = length)
+  names(batch) <- c("sample", "total_cells")
+  batch$sample <- as.character(batch$sample)
+  
+  stat <- dplyr::left_join(aggr, batch, by = "sample")
+  stat$freq <- (stat$num / stat$total_cells) * 100
+  stat <- stat[!is.na(stat$freq), ]
+  
+  # Create plot
+  if (plot_type == "boxplot") {
+    p <- ggplot(stat, aes(x = group, y = freq, fill = group)) +
+      geom_boxplot(outlier.shape = NA, alpha = 0.8, width = 0.5, color = if (show_contour) "black" else NA, size = 0.1) +
+      geom_jitter(aes(fill = sample), size = 1.5, shape = 21, stroke = 0.3, alpha = 0.8,
+                  position = position_jitterdodge(jitter.width = 0.2)) #+
+      #ggbeeswarm::geom_quasirandom()
+  } else if (plot_type == "barplot") {
+    p <- ggplot(stat, aes(x = group, y = freq, fill = group)) +
+      geom_bar(stat = "summary", #fun = "mean",
+               color = if (show_contour) "black" else NA, size = 0.1, alpha = 0.8) +
+      geom_errorbar(stat = "summary", fun.data = mean_se, width = 0.2) +
+      geom_jitter(aes(fill = sample), size = 1.5, shape = 21, stroke = 0.3, alpha = 0.8,
+                  position = position_jitterdodge(jitter.width = 0.2))
+  } else {
+    stop("Invalid plot type. Choose either 'boxplot' or 'barplot'.")
+  }
+  
+  stat$group <- factor(x = stat$group, levels = unique(data[[group_col]]))
+  stat$sample <- factor(x = stat$sample, levels = levels(data[[sample_order_col]]))
+  
+  # Add statistical comparisons
+  if (show_pvalue) {
+    
+    if (multi_p) {
+      p <- p + stat_compare_means(comparisons = combn(levels(stat$group), 2, simplify = FALSE),
+                                  size = label_size, bracket.nudge.y = 0.5) +
+        stat_compare_means(size = label_size, label = "p.format", 
+                           vjust = -7, 
+                           hjust = -0.5,
+                           tip.length = 0, 
+                           step.increase = 0.5
+        ) 
+    } else {
+      p <- p + stat_compare_means(size = label_size, label = "p.format", 
+                                  vjust = -2, 
+                                  hjust = -0.5,
+                                  tip.length = 0, 
+                                  step.increase = 0.5
+      ) 
+    }
+  }
+  
+  # Apply default colors if none are provided
+  if (is.null(group_colors)) {
+    group_colors <- ggpubr::get_palette("jco", length(unique(data[[group_col]])))
+    names(group_colors) <- unique(data[[group_col]])
+  }
+  if (is.null(sample_colors)) {
+    sample_colors <- ggpubr::get_palette("npg", length(unique(data[[sample_col]])))
+    names(sample_colors) <- unique(data[[sample_col]])
+  }
+  
+  if (!is.null(sample_colors)) {
+    p <- p + scale_color_manual(values = sample_colors)
+  }
+  
+  p <- p + plot_theme(theme_type = theme_type, font_size = fontsize, x_angle = x_angle) +
+    guides(fill = guide_legend(ncol = legend_ncol)) +
+    labs(x = x_title, y = y_title, fill = legend_title) +
+    scale_fill_manual(values = c(group_colors, sample_colors)) +
+    scale_y_continuous(expand = expansion(mult = c(0.05, 0.3)))
+  
+  p <- p + facet_wrap(~ cluster, scales = "free_y", ncol = ncol) +
+    theme(strip.text = element_text(face = "bold.italic", size = fontsize))
+  
+  if (!legend) {
+    p <- p & NoLegend()
+  }
+  
+  return(p)
+}
