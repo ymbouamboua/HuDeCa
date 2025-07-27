@@ -1303,3 +1303,241 @@ plot_cluster_percent <- function(data,
   
   return(p)
 }
+
+
+#' Gene Ontology (GO) enrichment analysis for clusters
+#'
+#' This function performs GO enrichment analysis for each cluster in a differential expression (DE) table,
+#' using the clusterProfiler package, and saves the results and plots for each cluster.
+#'
+#' @param DE A data.frame or tibble containing differential expression results, including gene names, cluster identities, and statistics.
+#' @param ident_col Name of the column in \code{DE} with cluster identities. Default is "cluster".
+#' @param gene_col Name of the column in \code{DE} with gene symbols. Default is "gene".
+#' @param logFC_col Name of the column in \code{DE} with log fold change values. Default is "avg_log2FC".
+#' @param pval_col Name of the column in \code{DE} with adjusted p-values. Default is "p_val_adj".
+#' @param org Organism: "human" (default) or "mouse".
+#' @param ont Ontology: "BP" (Biological Process), "MF" (Molecular Function), or "CC" (Cellular Component). Default is "BP".
+#' @param wrap_length Integer, maximum line length for GO term labels. Default is 50.
+#' @param category Number of top GO terms to plot per cluster. Default is 30.
+#' @param out.dir Output directory to save results and plots.
+#' @param out.name Output name prefix for files.
+#' @param ... Additional arguments passed to \code{clusterProfiler::enrichGO}.
+#'
+#' @return No return value. The function saves RDS files, PDF plots, and a TSV summary table in the specified output directory.
+#'
+#' @details
+#' For each cluster, the function performs GO enrichment analysis, saves the results as RDS, generates a barplot of the top GO terms,
+#' and writes a summary table for all clusters.
+#'
+#' @import clusterProfiler
+#' @import org.Hs.eg.db
+#' @import org.Mm.eg.db
+#' @import dplyr
+#' @import ggplot2
+#' @import stringr
+#' @import forcats
+#' @import colorspace
+#' @export
+Enrich_GO <- function(DE, 
+                      ident_col = "cluster",
+                      gene_col = "gene",
+                      logFC_col = "avg_log2FC",
+                      pval_col = "p_val_adj",
+                      org = "human", 
+                      ont = "BP", 
+                      wrap_length = 50,
+                      category = 30,
+                      out.dir,
+                      out.name,...) {
+  #require(EnsDb)
+  pkg_name <- ifelse(org == "human", "org.Hs.eg.db", "org.Mm.eg.db")
+  
+  if (!requireNamespace(pkg_name, quietly = TRUE)) {
+    stop(paste("Package", pkg_name, "needed for this function to work. Please install it."),
+         call. = FALSE)
+  }
+  
+  if (!requireNamespace("clusterProfiler", quietly = TRUE)) {
+    stop(paste("Package \"clusterProfiler\" needed for this function to work. Please install it."),
+         call. = FALSE)
+  }
+  
+  
+  joined <- data.frame()
+  cluster_names <- as.vector(unique(DE[[ident_col]]))
+  
+  for(i in 1:length(cluster_names)){
+    cluster_name <- cluster_names[i]
+    cat("[", i, "/", length(cluster_names),
+        "] GSEA working on: ", cluster_name, " ...\n")
+    
+    gene_list <- DE %>% 
+      dplyr::filter(.data[[ident_col]] == cluster_name) %>% 
+      dplyr::arrange(.data[[pval_col]]) %>% 
+      #head(topn) %>% 
+      dplyr::pull(.data[[gene_col]])
+    
+    db <- if(org == "human") org.Hs.eg.db::org.Hs.eg.db else org.Mm.eg.db::org.Mm.eg.db
+    
+    go_enrich <- clusterProfiler::enrichGO(gene = gene_list, 
+                                           OrgDb = db, 
+                                           ont = ont,
+                                           keyType = "SYMBOL", ...)
+    
+    dir <- paste(out.dir, ont, out.name, "/", sep = "/")
+    if(!dir.exists(dir)){
+      dir.create(file.path(dir), recursive = TRUE, showWarnings = FALSE)
+    }
+    
+    go_enrich@result$cluster_name <- replicate(nrow(go_enrich@result),paste(cluster_name))
+    saveRDS(go_enrich, paste(dir, cluster_name, "_GO_", ont, ".rds", sep = ""))
+    
+    df <- go_enrich@result
+    df$cluster_name <- replicate(nrow(df),paste(cluster_name))
+    rownames(df) <- c()
+    joined <- rbind(joined, df)
+    
+    df <- as_tibble(go_enrich@result) %>% 
+      arrange(.data$p.adjust) %>% 
+      head(category) %>% 
+      dplyr::mutate(cluster = cluster_name) %>% 
+      dplyr::mutate(#Description = stringr::str_to_title(.data$Description)
+        Description = stringr::str_to_upper(.data$Description)) %>% 
+      dplyr::mutate(Description = forcats::fct_reorder(.data$Description, dplyr::desc(.data$p.adjust))) %>% 
+      
+      # Wrap long GO terms
+      #df$Description <- stringr::str_wrap(df$Description, width = wrap_length)
+      
+      ggplot(df, mapping = aes(x = .data$Description, y = -log10(.data$p.adjust))) + 
+      geom_bar(aes(fill = .data$Count), 
+               stat = "identity") + 
+      scale_fill_gradientn("Gene Count", 
+                           colours = colorspace::diverge_hcl(7), 
+                           guide = "colourbar") +
+      coord_flip() + 
+      #geom_hline(yintercept = -log10(0.05), linetype = "dashed") + 
+      xlab("Gene Ontology") + 
+      ylab(bquote("-log"[10] ~ " adjusted p-value")) +
+      theme_bw() +
+      theme(axis.text = element_text(size = 8, color = "black"),
+            axis.title = element_text(size = 10, color = "black"),
+            legend.title=element_text(size = 8, color = "black")) +
+      ggtitle(cluster_name)
+    
+    saveRDS(go_enrich, paste(dir, cluster_name, "_GO_", ont, ".rds", sep = ""))
+    
+    ggsave(paste(dir, cluster_name, "_GO_", ont, ".pdf", sep = ""), width = 8, height = 8)
+    
+  }
+  
+  write.table(joined, file = paste(dir, "all_res_GO_", ont, ".tsv", sep = ""),
+              sep = "\t", quote = F, row.names = F, col.names = T)
+  
+  cat("GO analysis completed. Results saved in: ", out.dir)
+  
+}
+
+
+#' Plot Gene Ontology (GO) enrichment results
+#'
+#' This function creates a barplot of the top enriched GO terms from a data frame, with options to filter, select, and customize the output.
+#'
+#' @param df A data.frame or tibble containing GO enrichment results, including columns 'Description', 'p.adjust', and 'Count'.
+#' @param category Number of top GO terms to display. Default is 10.
+#' @param width Width of the output plot (in inches). Default is 7.
+#' @param height Height of the output plot (in inches). Default is 8.
+#' @param wrap_length Integer, maximum line length for GO term labels. Default is 30.
+#' @param selected_terms Character vector of patterns; only GO terms containing these patterns will be included. Default is NULL.
+#' @param exclude_terms Character vector of patterns; GO terms containing these patterns will be excluded. Default is NULL.
+#' @param out.dir Output directory to save the plot. If NULL, the plot is not saved. Default is NULL.
+#' @param cluster_name Name of the cluster for plot title and file naming. Default is NULL.
+#' @param ont Ontology type (e.g., "BP", "MF", "CC"). Default is "BP".
+#' @param base_size Base font size for plot text. Default is 10.
+#' @param legend.text.size Font size for legend text. Default is 8.
+#'
+#' @return A ggplot object representing the GO enrichment barplot. Optionally saves the plot as a PDF if \code{out.dir} is provided.
+#'
+#' @details
+#' The function filters and arranges GO terms, wraps long labels, and generates a horizontal barplot of -log10(adjusted p-value) for each term.
+#' The plot can be saved as a PDF file.
+#'
+#' @import ggplot2
+#' @import dplyr
+#' @import stringr
+#' @import forcats
+#' @import colorspace
+#' @export
+Plot_GO_Enrichment <- function(df, 
+                               category = 10, 
+                               width = 7, 
+                               height = 8, 
+                               wrap_length = 30,
+                               selected_terms = NULL, 
+                               exclude_terms = NULL, 
+                               out.dir = NULL, 
+                               cluster_name = NULL, 
+                               ont = "BP",
+                               base_size = 10,
+                               legend.text.size = 8) {
+  
+  # df <- df %>% 
+  #   arrange(.data$p.adjust) %>% 
+  #   head(category)
+  
+  # Convert Description to uppercase for consistent filtering
+  df$Description <- toupper(df$Description)
+  
+  # Exclude terms that contain any of the patterns in exclude_terms
+  if (!is.null(exclude_terms)) {
+    pattern_exclude <- paste(exclude_terms, collapse = "|")
+    df <- df %>% dplyr::filter(!grepl(pattern_exclude, .data$Description))
+  }
+  
+  # Select terms that contain any of the patterns in selected_terms
+  if (!is.null(selected_terms)) {
+    pattern_include <- paste(selected_terms, collapse = "|")
+    df <- df %>% dplyr::filter(grepl(pattern_include, .data$Description))
+  }
+  
+  # Check if there are any remaining terms
+  if (nrow(df) == 0) {
+    warning("Aucun terme GO correspondant aux critères fournis.")
+    return(NULL)
+  }
+  
+  # Wrap long GO terms
+  df$Description <- stringr::str_wrap(df$Description, width = wrap_length)
+  
+  df <- df %>% 
+    arrange(.data$p.adjust) %>% 
+    head(category) %>% 
+    dplyr::mutate(cluster = cluster_name) %>% 
+    dplyr::mutate(Description = forcats::fct_reorder(.data$Description, dplyr::desc(.data$p.adjust))) 
+  
+  # Create the plot
+  plot <- ggplot(df, mapping = aes(x = .data$Description, y = -log10(.data$p.adjust))) + 
+    geom_bar(aes(fill = .data$Count), stat = "identity", color = "black", size = 0.3) + 
+    scale_fill_gradientn("Gene count", colours = rev(colorspace::sequential_hcl(5, palette = "Burg")), guide = "colourbar") +
+    coord_flip() + 
+    xlab("Gene ontology") + 
+    ylab(bquote("-log"[10] ~ " adjusted p-value")) +
+    theme_bw() +
+    theme(plot.title = element_text(hjust = 0.5, size = base_size*1.5, face = "bold"),
+      axis.text = element_text(color = "black", size = base_size),
+          axis.title = element_text(color = "black", size = base_size),
+          legend.title = element_text(size = legend.text.size, color = "black"),
+          legend.frame = element_rect(color = "black"),  # Black border around legend
+          legend.key.height = unit(0.5, 'cm'), 
+          legend.key.width = unit(0.4, 'cm'),
+          axis.ticks = element_line(color = "black")) +  # Black axis ticks
+    ggtitle(cluster_name) 
+  
+  # Save the plot if output directory is provided
+  if (!is.null(out.dir) && !is.null(cluster_name)) {
+    dir.create(out.dir, recursive = TRUE, showWarnings = FALSE)
+    ggsave(paste(out.dir, "/", cluster_name, "_GO_", ont, ".pdf", sep = ""), plot, width = width, height = height)
+  }
+  
+  return(plot)
+}
+
