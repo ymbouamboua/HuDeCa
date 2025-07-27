@@ -992,3 +992,37 @@ save_plot(p, filename = file.path(dir.results, "figures/Fig_S4e"),formats = c("p
 
 ## Extended data figures 5
 
+## Fig_S5a
+
+```{r fig.width=4, fig.height=3.5, warning=F,message=F}
+
+pdf(file = file.path(dir.results, "figures/Fig_S5a.1.pdf"),  width = 4, height = 3.5)
+Plot_Cluster_Correlation(obj, group.by = "ann_level_0", fontsize = 10, plot.title = "", column_names_rot = 90)
+dev.off()
+
+```
+
+```{r fig.width=7.5, fig.height=6.5, warning=F,message=F}
+
+pdf(file = file.path(dir.results, "figures/Fig_S5a.2.pdf"),  width = 7.5, height = 6.5)
+Plot_Cluster_Correlation(obj, group.by = "ann_level_2", fontsize = 10, plot.title = "", column_names_rot = 90)
+dev.off()
+
+```
+
+### Fig S5b
+
+```{r fig.width=12, fig.height=7, warning=FALSE, message=F}
+
+Idents(obj) <- "ann_level_1"
+sub <- subset(obj, idents = "Olfactory epithelium", invert = T)
+idents <- levels(sub@meta.data[["sample"]])
+pseudo_rep_colors <- colorize(x = idents, theme = "inferno", n_colors = length(idents))
+
+p <- plot_cluster_percent(data = sub, label_size = 3, cluster_col = "ann_level_2_order", group_col = "PCW_order",sample_col = "sample", 
+group_colors = custom_colors$PCW, sample_colors = pseudo_rep_colors,legend = FALSE, multi_p = F,ncol = 7,x_angle = 45)
+p
+save_plot(p, file.path(dir.results, "figures/Fig_S5b"), formats = c("pdf"),width = 12, height = 7)
+
+```
+
