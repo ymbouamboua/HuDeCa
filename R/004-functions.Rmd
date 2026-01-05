@@ -77,7 +77,7 @@ run_qc <- function(
   qc_sum <- data.frame()
   dbl_sum <- data.frame()
   
-  if (verbose) cat("\n🚀 Starting quality control for", length(obj_list), "sample(s)...\n")
+  if (verbose) cat("\nStarting quality control for", length(obj_list), "sample(s)...\n")
   
   for (i in seq_along(obj_list)) {
     obj <- obj_list[[i]]
@@ -85,7 +85,7 @@ run_qc <- function(
       unique(obj@meta.data[[sample_col]]) else paste0("Sample_", i)
     
     pre_cells <- ncol(obj)
-    if (verbose) cat("\n────────────────────────────\n📦 Sample:", sample, "| Cells:", pre_cells, "\n")
+    if (verbose) cat("\n────────────────────────────\n Sample:", sample, "| Cells:", pre_cells, "\n")
     
     # Compute QC metrics
     obj$percent_mito <- PercentageFeatureSet(obj, pattern = mito_pat)
@@ -115,16 +115,16 @@ run_qc <- function(
         percent_mito < max_mito &
         (if (calc_ribo) percent_ribo < max_ribo else TRUE) &
         (if (calc_drop) dropout < max_drop else TRUE)
-      # ❌ No max UMI cutoff — preserves high-depth nuclei
+      # No max UMI cutoff — preserves high-depth nuclei
     )
     
     post_cells <- ncol(filt)
     pct_rm <- round((1 - post_cells / pre_cells) * 100, 2)
-    if (verbose) cat("✅ Retained:", post_cells, "cells (", pct_rm, "% removed)\n")
+    if (verbose) cat("Retained:", post_cells, "cells (", pct_rm, "% removed)\n")
     
     # Optional doublet filtering
     if (rm_dbl) {
-      if (verbose) cat("🔍 Running scDblFinder...\n")
+      if (verbose) cat("Running scDblFinder...\n")
       sce <- scDblFinder::scDblFinder(as.SingleCellExperiment(filt))
       filt$scDblFinder <- sce$scDblFinder.class
       filt <- subset(filt, scDblFinder == "singlet")
@@ -153,17 +153,13 @@ run_qc <- function(
   # Return object
   if (merge_output && length(obj_list) > 1) {
     merged <- merge(x = obj_list[[1]], y = obj_list[-1], merge.data = TRUE)
-    if (verbose) cat("\n🔗 Merged object returned.\n")
-    if (verbose) cat("\n🔗 Join leyers.\n")
-    #merged <- JoinLayers(merged)
-    #merged <- fix_seurat_matrix_names(merged)
+    if (verbose) cat("\n Merged object returned.\n")
     return(merged)
   } else if (single) {
-    if (verbose) cat("\n✅ Returning single filtered object.\n")
-    #obj_list[[1]] <- fix_seurat_matrix_names(obj_list[[1]])
+    if (verbose) cat("\nReturning single filtered object.\n")
     return(obj_list[[1]])
   } else {
-    if (verbose) cat("\n✅ Returning list of filtered objects.\n")
+    if (verbose) cat("\nReturning list of filtered objects.\n")
     return(obj_list)
   }
 }
@@ -424,7 +420,7 @@ genefilter <- function(
       "^SRY$", "^ZFY$", "^UTY$"
     )
   )
-
+  
   genes_up <- toupper(genes)
   names(genes_up) <- genes
   
@@ -836,124 +832,6 @@ fix_seurat_matrix_names <- function(sobj) {
   return(sobj)
 }
 
-
-# save_fig <- function(
-#     filename,
-#     fig = NULL,
-#     layout = c("single", "double"),
-#     type = c("ggplot", "heatmap", "baseplot"),
-#     format = c("pdf", "png", "tiff"),
-#     width = NULL,
-#     height = NULL,
-#     dpi = 300
-# ){
-#   layout <- match.arg(layout)
-#   type <- match.arg(type)
-#   format <- match.arg(format)
-#   
-#   # Nature Communications sizing
-#   default_width <- ifelse(layout == "single", 3.5, 7.2)  # inches
-#   default_height <- ifelse(type %in% c("heatmap", "baseplot"), 8, 5)
-#   
-#   width <- width %||% default_width
-#   height <- height %||% default_height
-#   
-#   # Ensure filename extension matches format
-#   if(!grepl(paste0("\\.", format, "$"), filename))
-#     filename <- paste0(filename, ".", format)
-#   
-#   cat("Saving ", filename,
-#           "\n layout=", layout,
-#           "\n type=", type,
-#           "\n size=", width, "×", height, " inches @ DPI=", dpi)
-#   
-#   # PDF output
-#   if(format == "pdf") {
-#     pdf(filename, width = width, height = height, useDingbats = FALSE)
-#     if(type == "ggplot") print(fig)
-#     if(type %in% c("heatmap", "baseplot")) eval(fig)
-#     dev.off()
-#     return(invisible(filename))
-#   }
-#   
-#   # PNG / TIFF
-#   if(format %in% c("png", "tiff")) {
-#     if(type == "ggplot") {
-#       ggsave(filename, plot = fig, width = width, height = height,
-#              units = "in", dpi = dpi)
-#     } else if(type %in% c("heatmap", "baseplot")) {
-#       if(format == "png") png(filename, width = width, height = height,
-#                               units = "in", res = dpi)
-#       if(format == "tiff") tiff(filename, width = width, height = height,
-#                                 units = "in", res = dpi, compression = "lzw")
-#       eval(fig)
-#       dev.off()
-#     }
-#   }
-#   
-#   invisible(filename)
-# }
-
-
-# save_fig <- function(
-#     filename,
-#     fig = NULL,
-#     layout = c("single", "double"),
-#     type = c("ggplot", "heatmap", "baseplot"),
-#     format = c("pdf", "png", "tiff"),
-#     width = NULL,
-#     height = NULL,
-#     dpi = 300
-# ){
-#   layout <- match.arg(layout)
-#   type <- match.arg(type)
-#   format <- match.arg(format)
-#   
-#   # Nature Communications sizing defaults
-#   default_width <- ifelse(layout == "single", 3.5, 7.2)  # inches
-#   default_height <- ifelse(type %in% c("heatmap", "baseplot"), 8, 5)
-#   
-#   width <- width %||% default_width
-#   height <- height %||% default_height
-#   
-#   # Ensure filename extension matches format
-#   if(!grepl(paste0("\\.", format, "$"), filename)) {
-#     filename <- paste0(filename, ".", format)
-#   }
-#   
-#   cat("Saving ", filename,
-#       "\n layout=", layout,
-#       "\n type=", type,
-#       "\n size=", width, "×", height, " inches @ DPI=", dpi, "\n")
-#   
-#   # PDF output
-#   if(format == "pdf") {
-#     pdf(filename, width = width, height = height, useDingbats = FALSE)
-#     if(type == "ggplot") print(fig)
-#     if(type %in% c("heatmap", "baseplot")) eval(fig)
-#     dev.off()
-#     return(invisible(filename))
-#   }
-#   
-#   # PNG / TIFF output
-#   if(format %in% c("png", "tiff")) {
-#     if(type == "ggplot") {
-#       ggsave(filename, plot = fig, width = width, height = height,
-#              units = "in", dpi = dpi)
-#     } else if(type %in% c("heatmap", "baseplot")) {
-#       if(format == "png") {
-#         png(filename, width = width, height = height, units = "in", res = dpi)
-#       }
-#       if(format == "tiff") {
-#         tiff(filename, width = width, height = height, units = "in", res = dpi, compression = "lzw")
-#       }
-#       eval(fig)
-#       dev.off()
-#     }
-#   }
-#   
-#   invisible(filename)
-# }
 
 savefig <- function(
     filename,
@@ -1697,7 +1575,7 @@ compute_OR_dominance <- function(
 #'------------------------------------------------------------------------------
 #'------------------------------------------------------------------------------
 vcf_correlation <- function(cluster_vcf, reference_vcf,  outdir,  method = "Souporcell", column_title = NULL,
-                                    column_title_side = "bottom",column_names_rot = 0,row_title = NULL, 
+                            column_title_side = "bottom",column_names_rot = 0,row_title = NULL, 
                             fontsize = 12, width = 4,  height = 3) {
   
   require(vcfR)
@@ -3008,9 +2886,6 @@ plot_theme <- function(
 }
 
 
-# Utility: %||%
-`%||%` <- function(a, b) if(!is.null(a)) a else b
-
 #'------------------------------------------------------------------------------
 #'------------------------------------------------------------------------------
 #' Generate a Color Palette with Presets and Interpolation
@@ -3060,14 +2935,14 @@ plot_theme <- function(
 #' @import colorspace
 #' @export
 custom_palette <- function(n,
-                      preset = c("base","bright", "pastel", "warm", "cool", "contrast", "earth", "custom"),
-                      base_colors = NULL,
-                      space = c("Lab", "rgb", "HCL"),
-                      oversample_factor = 1.3,
-                      remove_gray = TRUE,
-                      reverse = FALSE,
-                      adjust_saturation = 1,
-                      adjust_lightness = 1) {
+                           preset = c("base","bright", "pastel", "warm", "cool", "contrast", "earth", "custom"),
+                           base_colors = NULL,
+                           space = c("Lab", "rgb", "HCL"),
+                           oversample_factor = 1.3,
+                           remove_gray = TRUE,
+                           reverse = FALSE,
+                           adjust_saturation = 1,
+                           adjust_lightness = 1) {
   
   library(colorspace)
   
@@ -3199,6 +3074,7 @@ custom_palette <- function(n,
 #' @param ... Additional arguments passed to DimPlot
 #' @return ggplot or plotly object
 #' @export
+#' 
 cellmap <- function(object, group.by=NULL, reduction="umap", dims=c(1,2), 
                     shuffle=FALSE, raster=NULL,raster.dpi = c(512, 512), alpha=1, repel=FALSE, n.cells=TRUE,
                     label=FALSE, label.size=3.5, label.face="plain", cols=NULL, 
@@ -3379,351 +3255,6 @@ cellmap <- function(object, group.by=NULL, reduction="umap", dims=c(1,2),
 }
 
 
-#' #' Flexible Dimensionality Reduction Plot for Seurat Objects
-#' #'
-#' #' @description
-#' #' `cellmap()` is an enhanced, customizable wrapper around Seurat's `DimPlot`
-#' #' that supports:
-#' #' - 2D or 3D embeddings  
-#' #' - Alphabetical or user-defined legend ordering  
-#' #' - Dark/light themes  
-#' #' - Cluster labels with cell counts  
-#' #' - Legend customization (dot borders, ncol, icon size, justification, etc.)  
-#' #' - Optional axis removal or figure-style layout  
-#' #' - Multiple `group.by` inputs (returns patchwork grid)  
-#' #'
-#' #' The function supports **full control** over colors, transparency, label placement,
-#' #' legend formatting, background colors, axis visibility, and more.
-#' #'
-#' #' @param object Seurat object.
-#' #' @param group.by Metadata column(s) used for grouping. Can be one or multiple.
-#' #' @param shuffle Logical; whether to randomly shuffle points.
-#' #' @param raster Logical; rasterize points to speed plotting.
-#' #' @param alpha Transparency value for points (0–1).
-#' #' @param repel Logical; whether to repel cluster labels.
-#' #' @param reduction Dimensionality reduction to use ("umap", "tsne", "pca", etc.).
-#' #' @param dims Numeric vector; which dimensions to plot (2D or 3D).
-#' #' @param cell.number Logical; append cell numbers to legend labels.
-#' #' @param label Logical; add cluster labels on plot.
-#' #' @param label.size Numeric; text size for labels.
-#' #' @param label.fontface Font face for labels ("plain", "bold", "italic", etc.).
-#' #' @param colors Optional named vector of colors. Names define legend order.
-#' #' @param expand.colors Logical; unused in main plotting (kept for compatibility).
-#' #' @param figure.plot Logical; draw plot in figure mode (axis arrows).
-#' #' @param no.axes Logical; remove both axes.
-#' #' @param plot.title Optional custom plot title.
-#' #' @param legend Logical; display legend.
-#' #' @param legend.title Legend title (defaults to grouping variable).
-#' #' @param item.size Numeric; size of legend icons.
-#' #' @param legend.position Character ("right", "left", "bottom", "top").
-#' #' @param legend.justification Character ("center", "left", "right", etc.).
-#' #' @param legend.ncol Number of columns in legend.
-#' #' @param legend.dot.border Logical; draw border around legend dot.
-#' #' @param cell.countours Logical; add thin outline around each point.
-#' #' @param font.size Base font size.
-#' #' @param pt.size Point size for cells.
-#' #' @param dark.theme Logical; enable dark mode.
-#' #' @param show.total.cells Logical; append total cell count to title.
-#' #' @param threeD Logical; produce Plotly 3D embedding.
-#' #' @param ... Additional arguments passed to `DimPlot()`.
-#' #'
-#' #' @details
-#' #' ### Legend Ordering
-#' #' - If user supplies a **named** color vector:  
-#' #'   → the legend follows that exact order.  
-#' #'
-#' #' - If colors are not named:  
-#' #'   → levels are ordered **alphabetically**.  
-#' #'
-#' #' - If Seurat object has factor levels, they are preserved unless colors override them.
-#' #'
-#' #' ### Dark Theme
-#' #' Dark mode correctly switches:
-#' #' - panel background  
-#' #' - plot background  
-#' #' - all axis text  
-#' #' - legend text/title  
-#' #' - label text  
-#' #'
-#' #' ### Multiple group.by
-#' #' If multiple `group.by` values are passed, the function recursively creates multiple
-#' #' plots and returns a patchwork layout.
-#' #'
-#' #' @return
-#' #' - A ggplot object (2D)  
-#' #' - A plotly object (3D) if `threeD = TRUE`  
-#' #' - A patchwork object when multiple `group.by` inputs are provided  
-#' #'
-#' #' @import Seurat ggplot2 dplyr ggrepel plotly patchwork
-#' #'
-#' #' @examples
-#' #' \dontrun{
-#' #' cellmap(seurat_obj, group.by = "celltype")
-#' #'
-#' #' # With alphabetical legend (by default)
-#' #' cellmap(seurat_obj, group.by = "seurat_clusters")
-#' #'
-#' #' # With custom legend order
-#' #' cols <- c(B = "#1f77b4", A = "#ff7f0e")
-#' #' cellmap(seurat_obj, group.by = "cluster", colors = cols)
-#' #'
-#' #' # 3D embedding
-#' #' cellmap(seurat_obj, dims = c(1, 2, 3), threeD = TRUE)
-#' #' }
-#' #'
-#' #' @export
-#' #' 
-#' cellmap <- function(object, group.by = NULL, shuffle = FALSE, raster = NULL, alpha = 1, repel = FALSE,
-#'                      reduction = "umap", dims = c(1, 2), cell.number = TRUE, label = FALSE, label.size = 5,
-#'                      label.fontface = "italic", colors = NULL, expand.colors = TRUE, figure.plot = FALSE,
-#'                      no.axes = FALSE, plot.title = NULL, legend = TRUE, legend.title = NULL, item.size = 4,
-#'                      legend.position = "right", legend.justification = "center", legend.ncol = 1, legend.dot.border = TRUE,
-#'                      cell.countours = FALSE, font.size = 8, pt.size = NULL, dark.theme = FALSE, show.total.cells = FALSE,
-#'                      threeD = FALSE, ...) {
-#'   
-#'   require(Seurat)
-#'   require(ggplot2)
-#'   require(dplyr)
-#'   require(ggrepel)
-#'   require(plotly)
-#'   require(patchwork)
-#'   
-#'   if (length(group.by) > 1) {
-#'     message("Multiple 'group.by' values detected. Generating separate plots...")
-#'     plots <- lapply(group.by, function(g) {
-#'       cellmap(object = object, group.by = g, shuffle = shuffle, raster = raster, alpha = alpha,
-#'                repel = repel, reduction = reduction, dims = dims, cell.number = cell.number,label = label,
-#'                label.size = label.size,label.fontface = label.fontface, colors = colors, no.axes = no.axes,
-#'                expand.colors = expand.colors, figure.plot = figure.plot, plot.title = g, legend = legend,
-#'                legend.title = g, item.size = item.size, legend.position = legend.position,
-#'                legend.justification = legend.justification, legend.ncol = legend.ncol, font.size = font.size,
-#'                legend.dot.border = legend.dot.border, cell.countours = cell.countours, pt.size = pt.size,
-#'                dark.theme = dark.theme, show.total.cells = show.total.cells,threeD = threeD, ...)
-#'     })
-#'     return(patchwork::wrap_plots(plots))
-#'   }
-#'   
-#'   stopifnot(inherits(object, "Seurat"))
-#'   if (is.null(group.by)) group.by <- "ident"
-#'   if (group.by == "ident") object@meta.data$ident <- Idents(object)
-#'   else if (!group.by %in% colnames(object@meta.data))
-#'     stop(paste("Grouping column", group.by, "does not exist in metadata."))
-#'   
-#'   object <- SetIdent(object, value = group.by)
-#'   
-#'   
-#'   # COMPLETELY REPLACE the factor-handling block
-#'   values <- as.character(object@meta.data[[group.by]])
-#'   values[is.na(values)] <- "Unknown"
-#'   
-#'   if (is.factor(object@meta.data[[group.by]])) {
-#'     levels_group <- levels(object@meta.data[[group.by]])
-#'   } else {
-#'     levels_group <- unique(values)   # preserve natural order, NOT alphabetical
-#'   }
-#'   
-#'   if ("Unknown" %in% values && !("Unknown" %in% levels_group)) {
-#'     levels_group <- c(levels_group, "Unknown")
-#'   }
-#'   
-#'   object@meta.data[[group.by]] <- factor(values, levels = levels_group)
-#'   Idents(object) <- object@meta.data[[group.by]]
-#'   
-#'   if (missing(legend.ncol)) {
-#'     if (length(levels_group) > 18) legend.ncol <- 2 else legend.ncol <- 1
-#'   }
-#'   
-#'   if (is.null(colors)) {
-#'     colors <- custom_palette(length(levels_group))
-#'     names(colors) <- levels_group
-#'     if ("Unknown" %in% names(colors)) colors["Unknown"] <- "gray70"
-#'   } else {
-#'     # Ensure names
-#'     if (is.null(names(colors))) {
-#'       # assign in order; truncate or warn if mismatch
-#'       colors <- setNames(colors[seq_len(length(levels_group))], levels_group)
-#'     }
-#'     
-#'     # Make sure all levels have a color
-#'     missing_levels <- setdiff(levels_group, names(colors))
-#'     if (length(missing_levels) > 0) {
-#'       colors[missing_levels] <- "gray70"
-#'     }
-#'     
-#'     # Keep only colors for existing levels
-#'     colors <- colors[levels_group]
-#'   }
-#'   
-#'   if (!(reduction %in% names(object@reductions))) {
-#'     stop(paste0("Reduction '", reduction, "' not found. Available: ",
-#'                 paste(names(object@reductions), collapse = ", ")))
-#'   }
-#'   embeddings <- object@reductions[[reduction]]@cell.embeddings
-#'   if (max(dims) > ncol(embeddings))
-#'     stop("Selected dims exceed available dimensions in reduction.")
-#'   
-#'   if (threeD || length(dims) == 3) {
-#'     df <- data.frame(
-#'       x = embeddings[, dims[1]],
-#'       y = embeddings[, dims[2]],
-#'       z = embeddings[, dims[3]],
-#'       cluster = Idents(object)
-#'     )
-#'     hover_labels <- if (cell.number) {
-#'       cell.nb <- table(df$cluster)
-#'       paste0(df$cluster, " (n=",cell.nb[as.character(df$cluster)],")")
-#'     } else as.character(df$cluster)
-#'     
-#'     p3d <- plot_ly(
-#'       df, x = ~x, y = ~y, z = ~z, color = ~cluster, colors = colors,
-#'       type = "scatter3d", mode = "markers",
-#'       marker = list(size = ifelse(is.null(pt.size), 2, pt.size),
-#'                     opacity = alpha, line = list(width = 0)),
-#'       text = hover_labels, hoverinfo = "text"
-#'     )
-#'     if (label) {
-#'       centers <- df %>% group_by(cluster) %>% summarise(
-#'         x = median(x), y = median(y), z = median(z)
-#'       )
-#'       p3d <- p3d %>%
-#'         add_text(data = centers, x = ~x, y = ~y, z = ~z,
-#'                  text = ~cluster, textposition = "top center")
-#'     }
-#'     return(p3d)
-#'   }
-#'   
-#'   plt <- DimPlot(
-#'     object = object, group.by = group.by,
-#'     shuffle = shuffle, raster = raster, pt.size = pt.size,
-#'     repel = repel, alpha = alpha, reduction = reduction, dims = dims, ...
-#'   )
-#'   
-#'   if (!is.null(alpha) && alpha < 1)
-#'     plt <- plt + scale_alpha_manual(values = rep(alpha, length(levels_group)), guide = "none")
-#'   
-#'   if (cell.number) {
-#'     Idents(object) <- group.by
-#'     cell.nb <- table(object@active.ident)
-#'     sorted_cell_nb <- cell.nb[levels(object@meta.data[[group.by]])]
-#'     ClusterLabels <- paste0(names(sorted_cell_nb), " (n=", sorted_cell_nb,")")
-#'   } else ClusterLabels <- levels(object@meta.data[[group.by]])
-#'   
-#'   # DD breaks = levels_group
-#'   plt <- plt + scale_color_manual(
-#'     labels = ClusterLabels,
-#'     values = colors,
-#'     breaks = levels_group   
-#'   )
-#'   
-#'   if (legend.dot.border) {
-#'     plt <- plt & guides(color = guide_legend(
-#'       override.aes = list(size = item.size, 
-#'                           shape = 21,
-#'                           size = 2,
-#'                           color = "black",
-#'                           stroke = 0.5, 
-#'                           fill = unname(colors)),
-#'       ncol = legend.ncol, 
-#'       title = legend.title,
-#'       keyheight = unit(0.25, "cm"),
-#'       keywidth  = unit(0.25, "cm"),
-#'       default.unit = "cm"
-#'     ))
-#'   } else {
-#'     plt <- plt & guides(color = guide_legend(
-#'       override.aes = list(size = item.size),
-#'       ncol = legend.ncol, title = legend.title
-#'     ))
-#'   }
-#'   
-#'   total_cells <- ncol(object)
-#'   if (is.null(plot.title)) plot.title <- group.by
-#'   if (show.total.cells)
-#'     plot.title <- paste0(plot.title, " (n = ", format(total_cells, big.mark = ","), ")")
-#'   
-#'   text_col <- if (dark.theme) "white" else "black"
-#'   panel_bg <- if (dark.theme) "#1E1E1E" else "white"
-#'   
-#'   plt <- plt +
-#'     labs(title = plot.title, colour = paste(legend.title)) +
-#'     theme(
-#'       plot.background = element_rect(fill = panel_bg, color = NA),
-#'       panel.background = element_rect(fill = panel_bg, color = NA),
-#'       plot.title = element_text(size = font.size + 4, hjust = 0.5,  face = "bold", color = text_col),
-#'       axis.text.x = element_text(color = text_col, size = font.size),
-#'       axis.text.y = element_text(color = text_col, size = font.size),
-#'       axis.title = element_text(size = font.size, face = "bold", color = text_col),
-#'       legend.title = element_text(size = font.size + 1, face = "bold", color = text_col),
-#'       legend.text = element_text(size = font.size - 2, color = text_col),
-#'       legend.position = legend.position,
-#'       legend.justification = legend.justification,
-#'       legend.spacing.y = unit(0.02, "cm"),
-#'       legend.spacing.x = unit(0.02, "cm"),
-#'       legend.key.height = unit(0.25, "cm"),
-#'       legend.key.width = unit(0.25, "cm"),
-#'       legend.background = element_rect(fill = if (dark.theme) "#2B2B2B" else "transparent", color = NA)
-#'     )
-#'   
-#'   if (label) {
-#'     umap_data <- tibble(
-#'       x = embeddings[, dims[1]],
-#'       y = embeddings[, dims[2]],
-#'       cluster = as.character(object@active.ident)
-#'     ) %>%
-#'       group_by(cluster) %>%
-#'       summarise(x = median(x), y = median(y), .groups = "drop")
-#'     
-#'     plt <- plt + geom_text_repel(
-#'       data = umap_data, aes(x, y, label = cluster),
-#'       color = if (dark.theme) "white" else "black",
-#'       fontface = label.fontface, bg.color = if (dark.theme) "#3A3A3A" else "grey95",
-#'       bg.r = 0.1, size = label.size, seed = 42
-#'     )
-#'   }
-#'   
-#'   if (cell.countours)
-#'     plt <- plt & geom_point(
-#'       aes(x = embeddings[, dims[1]], y = embeddings[, dims[2]]),
-#'       shape = 21, colour = "black", stroke = 0.05
-#'     )
-#'   
-#'   if (!legend) plt <- plt & NoLegend()
-#'   if (no.axes) plt <- plt & NoAxes()
-#'   
-#'   if (figure.plot) {
-#'     # x.lab.reduc <- if (!is.null(plt$labels$x)) plt$labels$x else paste0(toupper(reduction), "_", dims[1])
-#'     # y.lab.reduc <- if (!is.null(plt$labels$y)) plt$labels$y else paste0(toupper(reduction), "_", dims[2])
-#'     x.lab.reduc <- if (!is.null(plt$labels$x)) plt$labels$x else paste0(toupper(reduction), dims[1])
-#'     y.lab.reduc <- if (!is.null(plt$labels$y)) plt$labels$y else paste0(toupper(reduction), dims[2])
-#'     
-#'     
-#'     plt <- plt & NoAxes()
-#'     
-#'     axis.plot <- ggplot(data.frame(x = c(0, 1), y = c(0, 1)), aes(x, y)) +
-#'       geom_blank() +
-#'       xlab(x.lab.reduc) + ylab(y.lab.reduc) +
-#'       theme_classic(base_size = font.size) +
-#'       theme(
-#'         plot.background  = element_rect(fill = "transparent", colour = NA),
-#'         panel.background = element_rect(fill = "transparent"),
-#'         axis.title       = element_text(size = font.size, face = "plain", colour = text_col),
-#'         axis.text        = element_blank(),
-#'         axis.ticks       = element_blank(),
-#'         axis.line        = element_line(
-#'           arrow = arrow(angle = 15, length = unit(.5, "cm"), type = "closed")
-#'         )
-#'       )    
-#'     
-#'     figure.layout <- c(
-#'       patchwork::area(t = 1, l = 1, b = 11, r = 11),
-#'       patchwork::area(t = 10, l = 1, b = 11, r = 2)
-#'     )
-#'     
-#'     return(plt + axis.plot + patchwork::plot_layout(design = figure.layout))
-#'   }
-#'   
-#'   return(plt)
-#' }
 
 
 #'------------------------------------------------------------------------------
@@ -3909,180 +3440,6 @@ celldot <- function(object, features, group.by="seurat_clusters", th.cols="Reds"
 #' }
 #' @export
 #' 
-# cellvio_v1 <- function(
-#     obj, features,
-#     ncol = NULL,
-#     shared.y = FALSE,
-#     ttl.pos = c("center", "left", "right"),
-#     group.by = "seurat_clusters",
-#     split.by = NULL,
-#     stack = FALSE,
-#     assay = "RNA",
-#     slot = "data",
-#     log = FALSE,
-#     cols = NULL,
-#     med = FALSE,
-#     med.size = 1,
-#     pt.size = 0,
-#     border.size = 0.1,
-#     font = 8,
-#     theme = "classic",
-#     x.angle = 45,
-#     leg.pos = "none",
-#     title = NULL,
-#     rm.subttl = FALSE,
-#     flip = FALSE,
-#     auto.resize = TRUE,
-#     ylab.global = NULL,
-#     xlab.global = NULL,
-#     add.stats = FALSE,
-#     show.pval = FALSE,
-#     pairwise = FALSE,
-#     pval.label = "p.signif",
-#     font.size = 10,
-#     ...
-# ) {
-#   
-#   stopifnot(inherits(obj, "Seurat"))
-#   if (length(features) == 0) stop("features must be provided.")
-#   ttl.pos <- match.arg(ttl.pos)
-#   
-#   
-#   # --- determine ncol ---
-#   if (is.null(ncol)) {
-#     ncol <- if (stack) 1 else max(1, ceiling(sqrt(length(features) / 1.5)))
-#   }
-#   
-#   # Set identities if grouping
-#   if (!is.null(group.by)) {
-#     if (!group.by %in% colnames(obj@meta.data))
-#       stop(paste(group.by, "not found in metadata."))
-#     Idents(obj) <- group.by
-#   }
-#   
-#   # Determine which features exist
-#   f.expr <- intersect(features, rownames(obj[[assay]]))
-#   f.meta <- intersect(features, colnames(obj@meta.data))
-#   features <- unique(c(f.expr, f.meta))
-#   if (!length(features)) stop("No features found in assay or metadata.")
-#   
-#   # Shared y-scale
-#   ymax <- NULL
-#   if (shared.y) {
-#     vals <- c(
-#       if (length(f.expr)) as.numeric(Seurat::GetAssayData(obj, assay, slot)[f.expr, ]),
-#       if (length(f.meta)) as.numeric(as.matrix(obj@meta.data[, f.meta, drop = FALSE]))
-#     )
-#     vals <- vals[is.finite(vals)]
-#     if (length(vals)) ymax <- max(vals)
-#   }
-#   
-#   # Colors
-#   if (is.null(cols)) {
-#     g <- tryCatch(unique(obj[[group.by]][, 1]), error = \(e) NULL)
-#     cols <- custom_palette(length(g))
-#     #cols <- scales::hue_pal()(if (is.null(g)) 8 else length(g))
-#     #cols <- ggpubr::get_palette("npg", length(g))
-#     names(cols) <- g
-#   }
-#   
-#   # ---- helper to build a single violin ----
-#   # Helper to build a single violin with stats
-#   vln <- function(f) {
-#     df <- Seurat::FetchData(obj, vars = c(group.by, f))
-#     names(df)[2] <- "value"
-#     df[[group.by]] <- factor(df[[group.by]]) # ensure factor
-#     
-#     # Base plot
-#     p <- ggplot(df, aes_string(group.by, "value", fill = group.by)) +
-#       geom_violin(scale = "width", color = "black", size = border.size) +
-#       scale_fill_manual(values = cols)
-#     
-#     # Points
-#     if (pt.size > 0) p <- p + geom_jitter(width = 0.1, size = pt.size, alpha = 0.6)
-#     
-#     # Add statistics
-#     if (add.stats && show.pval && length(levels(df[[group.by]])) > 1) {
-#       cmp <- if (pairwise) utils::combn(levels(df[[group.by]]), 2, simplify = FALSE) else NULL
-#       stat_fun <- if (length(levels(df[[group.by]])) == 2) "wilcox.test" else "kruskal.test"
-#       y_max <- max(df$value, na.rm = TRUE)
-#       y_step <- (ymax %||% y_max) * 0.05
-#       p <- p + ggpubr::stat_compare_means(
-#         method = stat_fun,
-#         comparisons = cmp,
-#         label = pval.label,
-#         hide.ns = FALSE,
-#         label.y = y_max + seq(0, by = y_step, length.out = length(cmp))
-#       )
-#     }
-#     
-#     
-#     # Titles
-#     p <- if (!rm.subttl) p + labs(title = f) else p + labs(title = NULL)
-#     
-#     # Theme & formatting
-#     p <- p + plot_theme(theme = theme, font.size = font.size, x.angle = x.angle,
-#                         leg.pos = leg.pos, x.ttl = FALSE, ttl.pos = ttl.pos)
-#     
-#     if (med) p <- p + stat_summary(fun = median, geom = "point", shape = 3, size = med.size)
-#     if (!is.null(ymax)) p <- p + ylim(0, ymax)
-#     if (flip) p <- p + coord_flip()
-#     p + ylab(NULL)
-#   }
-#   
-#   # number of cols
-#   if (is.null(ncol))
-#     ncol <- max(1, ceiling(sqrt(length(features) / 1.5)))
-#   
-#   plist <- lapply(features, vln)
-#   total <- length(plist)
-#   
-#   # Only show x-axis on bottom plots
-#   bottom <- sapply(1:ncol, \(i) max(seq(i, total, by = ncol)))
-#   for (i in seq_along(plist)) {
-#     if (!(i %in% bottom)) {
-#       plist[[i]] <- plist[[i]] +
-#         theme(axis.text.x = element_blank(),
-#               axis.ticks.x = element_blank())
-#     }
-#   }
-#   
-#   # Layout
-#   combo <- patchwork::wrap_plots(plist, ncol = ncol) +
-#     patchwork::plot_layout(guides = "collect")
-#   
-#   if (!is.null(title)) {
-#     combo <- combo +
-#       patchwork::plot_annotation(
-#         title = title,
-#         theme = theme(title = element_text(face = "bold"))
-#       )
-#   }
-#   
-#   # Global labels
-#   auto_y <- switch(slot,
-#                    data = "Expression level",
-#                    counts = "Raw counts",
-#                    scale.data = "Scaled expression",
-#                    "Expression level")
-#   
-#   ylab <- if (is.null(ylab.global)) auto_y else ylab.global
-#   xlab <- if (is.null(xlab.global)) "" else xlab.global
-#   
-#   plt <- cowplot::ggdraw(combo) +
-#     cowplot::draw_label(ylab, x = -0.01, y = 0.55, angle = 90, size = font) +
-#     cowplot::draw_label(xlab, x = 0.5, y = 0.02, size = font) +
-#     theme(plot.margin = margin(15, 15, 15, 15))
-#   
-#   # Auto resize attributes
-#   if (auto.resize) {
-#     ng <- length(unique(obj[[group.by]][, 1]))
-#     attr(plt, "dynamic_width") <- 6 + ng * 0.3
-#     attr(plt, "dynamic_height") <- 4 + length(features) * 0.25
-#   }
-#   
-#   plt
-# }
 
 cellvio <- function(
     obj, features,
@@ -4181,18 +3538,18 @@ cellvio <- function(
     
     p <- suppressWarnings({
       suppressMessages({Seurat::VlnPlot(
-      obj,
-      features = f,
-      group.by = group.by,
-      split.by = split.by,
-      assay = assay,
-      slot = slot,
-      pt.size = pt.size,
-      cols = cols,
-      ...
-    ) + scale_y_continuous(
-      expand = expansion(mult = c(0.05, 0.25))
-    )
+        obj,
+        features = f,
+        group.by = group.by,
+        split.by = split.by,
+        assay = assay,
+        slot = slot,
+        pt.size = pt.size,
+        cols = cols,
+        ...
+      ) + scale_y_continuous(
+        expand = expansion(mult = c(0.05, 0.25))
+      )
       })
     })
     
@@ -4606,10 +3963,10 @@ plot_unique_gene_counts <- function(
 #' @export
 #'
 plot_cluster_percent <- function(data, data.full = NULL, cluster.col = "seurat_clusters", group.col = "group", sample.col = "sample", aggregate = TRUE,
-    sample.order.col = NULL, sample.colors = NULL, group.colors = NULL, font.size = 8, show.contour = TRUE, theme = "minimal", plot.type = "barplot",
-    x.angle = 45, show.pval = TRUE, multi.pval = TRUE, pairwise.test = FALSE, label = "p.signif", label.size = 5, legend = TRUE, legend.ncol = 1,
-    legend.title = NULL, plot.title = NULL, x.title = NULL, y.title = "Proportion (%)", ncol = 4, bg.color = "white", facet.bg = TRUE,
-    ...
+                                 sample.order.col = NULL, sample.colors = NULL, group.colors = NULL, font.size = 8, show.contour = TRUE, theme = "minimal", plot.type = "barplot",
+                                 x.angle = 45, show.pval = TRUE, multi.pval = TRUE, pairwise.test = FALSE, label = "p.signif", label.size = 5, legend = TRUE, legend.ncol = 1,
+                                 legend.title = NULL, plot.title = NULL, x.title = NULL, y.title = "Proportion (%)", ncol = 4, bg.color = "white", facet.bg = TRUE,
+                                 ...
 ) {
   require(ggplot2); require(ggpubr); require(dplyr); require(Seurat)
   
@@ -5131,386 +4488,6 @@ pb_prop_plot <- function(
   list(plot = p, stats = stats)
 }
 
-
-
-
-
-# plot_props_v4.1 ----------------------------------------------------------
-plot_props_v4 <- function(
-    data,
-    x,                       # grouping variable (factor or character) - e.g. "ann_level_2"
-    y,                       # identity / category variable - e.g. "Phase"
-    plot.type = c("bar","point","box"),
-    prop = FALSE,            # show proportions (counts -> %)
-    prop.multi = FALSE,      # break into facets per identity (.ident)
-    percent_stacked = FALSE, # when TRUE, stacked bars display % (like position = "fill")
-    stack = FALSE,           # stacked instead of dodge
-    coord.flip = FALSE,
-    x.reverse = FALSE,       # reverse x-level order
-    colors = NULL,
-    use.brewer = FALSE,      # use RColorBrewer palette when colors not provided
-    brew.pal = "Set1",
-    font.size = 8,
-    x.angle = 90,
-    theme = c("classic","minimal","bw"),
-    raster = FALSE,
-    legend = TRUE,
-    legend.title = NULL,
-    legend.position = "right",
-    legend.ncol = 1,
-    legend.text.size = 8,
-    tests.within = c("none","chi.gof","fisher.gof","gtest"), # within-group tests
-    tests.pairwise = c("none","fisher","chisq","prop.test","multinom"),    # pairwise tests
-    correction = c("none","bonferroni","holm","BH","BY","hochberg","fdr"),
-    pval.display = c("none","value","stars","both"),
-    pval.cutoffs = c(0.001,0.01,0.05),   # thresholds for stars: ***,**,*
-    show.ci = FALSE,
-    ci.type = c("wilson","agresti","wald","bootstrap"),
-    ci.conf.level = 0.95,
-    arrows = FALSE,
-    arrows.n = 3,
-    arrows.type = c("absolute","relative","increase","decrease","both"),
-    arrows.color = "red",
-    arrows.size = 0.8,
-    arrows.alpha = 0.8,
-    digits = 3,
-    add.count.labels = FALSE,
-    count.label.size = 3,
-    sig.label.size = 4,
-    draw_pairwise_brackets = FALSE,   # NEW: draw pairwise brackets on the plot
-    pairwise_topk = 3,                # NEW: top-k most significant pairwise comparisons to draw
-    bracket_nudge = 0.03,             # NEW: vertical offset fraction for stacked bracket placement
-    bracket_text_size = 3.5,          # NEW: bracket pvalue text size
-    return_pairwise_heatmap = FALSE,  # NEW: return a heatmap of pairwise p-values
-    pairwise_heatmap_plot = TRUE,     # if TRUE and pheatmap available produce a plot
-    publication_style = FALSE,        # NEW: compact publication style (Nature-like)
-    return_data = FALSE,
-    verbose = TRUE,
-    ...
-) {
-
-  # Arg setup + checks
-  plot.type <- match.arg(plot.type)
-  theme <- match.arg(theme)
-  tests.within <- match.arg(tests.within)
-  tests.pairwise <- match.arg(tests.pairwise)
-  correction <- match.arg(correction)
-  pval.display <- match.arg(pval.display)
-  ci.type <- match.arg(ci.type)
-  arrows.type <- match.arg(arrows.type)
-  
-  # load minimal packages
-  if (!requireNamespace("ggplot2", quietly = TRUE)) stop("ggplot2 required")
-  if (!requireNamespace("dplyr", quietly = TRUE)) stop("dplyr required")
-  if (!requireNamespace("rlang", quietly = TRUE)) stop("rlang required")
-  if (!requireNamespace("tibble", quietly = TRUE)) install.packages("tibble")
-  if (!requireNamespace("tidyr", quietly = TRUE)) install.packages("tidyr")
-  
-  # optional packages
-  has_binom <- requireNamespace("binom", quietly = TRUE)
-  has_ggsignif <- requireNamespace("ggsignif", quietly = TRUE)
-  has_pheatmap <- requireNamespace("pheatmap", quietly = TRUE)
-  has_nnet <- requireNamespace("nnet", quietly = TRUE)
-  has_DescTools <- requireNamespace("DescTools", quietly = TRUE)
-  
-  # Accept Seurat objects
-  is_seurat <- inherits(data, "Seurat")
-  if (is_seurat) {
-    if (verbose) message("Detected Seurat object — using object@meta.data")
-    data <- as.data.frame(data@meta.data)
-  } else {
-    data <- as.data.frame(data)
-  }
-  
-  # Tidy input vars
-  xq <- rlang::enquo(x)
-  yq <- rlang::enquo(y)
-  xname <- rlang::as_name(xq)
-  yname <- rlang::as_name(yq)
-  
-  if (!(xname %in% colnames(data))) stop(paste0("x column '", xname, "' not found"))
-  if (!(yname %in% colnames(data))) stop(paste0("y column '", yname, "' not found"))
-  
-  data[[xname]] <- as.character(data[[xname]])
-  data[[yname]] <- as.character(data[[yname]])
-  
-  # preserve original ordering when factor present
-  if (is.factor(data[[xname]])) x_levels <- levels(data[[xname]]) else x_levels <- unique(data[[xname]])
-  if (is.factor(data[[yname]])) y_levels <- levels(data[[yname]]) else y_levels <- unique(data[[yname]])
-  
-  if (x.reverse) x_levels <- rev(x_levels)
-  data[[xname]] <- factor(data[[xname]], levels = x_levels)
-  data[[yname]] <- factor(data[[yname]], levels = y_levels)
-  
-  # Compute counts / proportions
-  library(dplyr)
-  stat <- data %>%
-    dplyr::group_by(.grp = .data[[xname]], .id = .data[[yname]]) %>%
-    dplyr::summarise(.n = dplyr::n(), .groups = "drop") %>%
-    dplyr::rename(.group = .grp, .ident = .id)
-  
-  # Add zero rows for missing combos
-  all_combos <- expand.grid(.group = levels(data[[xname]]), .ident = levels(data[[yname]]), stringsAsFactors = FALSE)
-  stat <- dplyr::right_join(all_combos, stat, by = c(".group", ".ident"))
-  stat$.n[is.na(stat$.n)] <- 0
-  
-  totals <- stat %>% dplyr::group_by(.group) %>% dplyr::summarise(.tot = sum(.n), .groups = "drop")
-  stat <- dplyr::left_join(stat, totals, by = ".group")
-  
-  if (prop || prop.multi || percent_stacked) {
-    stat <- stat %>% dplyr::mutate(.value = ifelse(.tot==0, 0, .n / .tot * 100))
-  } else {
-    stat <- stat %>% dplyr::mutate(.value = .n)
-  }
-  
-  # default palette
-  if (is.null(colors)) {
-    if (use.brewer) {
-      pal_base <- RColorBrewer::brewer.pal(max(3, min(8, length(unique(stat$.ident)))), brew.pal)
-      colors <- grDevices::colorRampPalette(pal_base)(length(unique(stat$.ident)))
-      names(colors) <- unique(stat$.ident)
-    } else {
-      colors <- scales::hue_pal()(length(unique(stat$.ident)))
-      names(colors) <- unique(stat$.ident)
-    }
-  } else {
-    if (is.null(names(colors))) names(colors) <- unique(stat$.ident)
-  }
-  
-  # Statistical tests
-  p_to_stars <- function(p, cutoffs = pval.cutoffs) {
-    ifelse(is.na(p), NA_character_,
-           ifelse(p < cutoffs[1], "***",
-                  ifelse(p < cutoffs[2], "**",
-                         ifelse(p < cutoffs[3], "*", "ns"))))
-  }
-  
-  # Within-group (goodness of fit) tests
-  within_res <- NULL
-  if (tests.within != "none") {
-    within_list <- lapply(levels(stat$.group), function(g) {
-      sub <- stat %>% dplyr::filter(.group == g)
-      counts <- sub$.n
-      test_name <- NA_character_; pval <- NA_real_
-      if (tests.within == "chi.gof") {
-        expect_p <- rep(1/length(counts), length(counts))
-        t <- tryCatch(chisq.test(counts, p = expect_p), error = function(e) NULL)
-        test_name <- "chi.gof"
-        pval <- if (!is.null(t)) t$p.value else NA_real_
-      } else if (tests.within == "gtest" && has_DescTools) {
-        t <- tryCatch(DescTools::GTest(counts), error = function(e) NULL)
-        test_name <- "gtest"
-        pval <- if (!is.null(t)) t$p.value else NA_real_
-      }
-      data.frame(group = g, test = test_name, p.value = pval, stringsAsFactors = FALSE)
-    })
-    within_res <- dplyr::bind_rows(within_list)
-    if (correction != "none") within_res$p.adj <- p.adjust(within_res$p.value, method = correction)
-    within_res$stars <- p_to_stars(within_res$p.value)
-  }
-  
-  # Pairwise comparisons per identity (.ident)
-  pairwise_res <- NULL
-  if (tests.pairwise != "none") {
-    grps <- levels(stat$.group)
-    combos <- t(combn(grps, 2))
-    all_pairs <- list()
-    for (ident in levels(stat$.ident)) {
-      sub <- stat %>% dplyr::filter(.ident == ident)
-      for (r in seq_len(nrow(combos))) {
-        g1 <- combos[r,1]; g2 <- combos[r,2]
-        c1 <- sub %>% dplyr::filter(.group==g1) %>% dplyr::pull(.n)
-        c2 <- sub %>% dplyr::filter(.group==g2) %>% dplyr::pull(.n)
-        t1 <- sub %>% dplyr::filter(.group==g1) %>% dplyr::pull(.tot) %>% unique()
-        t2 <- sub %>% dplyr::filter(.group==g2) %>% dplyr::pull(.tot) %>% unique()
-        pval <- NA_real_
-        if (tests.pairwise == "fisher") {
-          mat <- matrix(c(c1, t1 - c1, c2, t2 - c2), nrow = 2)
-          t <- tryCatch(fisher.test(mat), error = function(e) NULL)
-          pval <- if (!is.null(t)) t$p.value else NA_real_
-        } else if (tests.pairwise == "chisq") {
-          mat <- matrix(c(c1, t1 - c1, c2, t2 - c2), nrow = 2)
-          t <- tryCatch(chisq.test(mat), error = function(e) NULL)
-          pval <- if (!is.null(t)) t$p.value else NA_real_
-        } else if (tests.pairwise == "prop.test") {
-          t <- tryCatch(prop.test(c(c1,c2), c(t1,t2)), error = function(e) NULL)
-          pval <- if (!is.null(t)) t$p.value else NA_real_
-        } else if (tests.pairwise == "multinom" && has_nnet) {
-          # fallback to prop.test per pair if multinom not requested or available
-          t <- tryCatch(prop.test(c(c1,c2), c(t1,t2)), error = function(e) NULL)
-          pval <- if (!is.null(t)) t$p.value else NA_real_
-        }
-        all_pairs[[length(all_pairs)+1]] <- data.frame(ident=ident, group1=g1, group2=g2, x1=c1, n1=t1, x2=c2, n2=t2, p.value=pval, stringsAsFactors = FALSE)
-      }
-    }
-    pairwise_res <- dplyr::bind_rows(all_pairs)
-    if (correction != "none") pairwise_res$p.adj <- p.adjust(pairwise_res$p.value, method = correction)
-    pairwise_res$stars <- p_to_stars(pairwise_res$p.value)
-  }
-  
-  # Confidence intervals (optional)
-  ci_res <- NULL
-  if (show.ci) {
-    ci_list <- lapply(seq_len(nrow(stat)), function(i) {
-      r <- stat[i, ]
-      xcount <- r$.n; ntotal <- r$.tot
-      if (ntotal == 0) {
-        lo <- hi <- 0
-      } else if (ci.type %in% c("wilson","agresti") && has_binom) {
-        method <- ifelse(ci.type=="wilson","wilson","agresti-coull")
-        b <- binom::binom.confint(xcount, ntotal, conf.level = ci.conf.level, methods = method)
-        lo <- b$lower; hi <- b$upper
-      } else {
-        pt <- tryCatch(prop.test(xcount, ntotal, conf.level = ci.conf.level), error = function(e) NULL)
-        if (!is.null(pt)) { lo <- pt$conf.int[1]; hi <- pt$conf.int[2] } else { lo <- NA; hi <- NA }
-      }
-      data.frame(.group = r$.group, .ident = r$.ident, x = xcount, n = ntotal, prop = ifelse(ntotal==0, 0, xcount/ntotal*100), ci.lo = lo*100, ci.hi = hi*100, stringsAsFactors = FALSE)
-    })
-    ci_res <- dplyr::bind_rows(ci_list)
-  }
-  
-  # Build ggplot
-  library(ggplot2)
-  plotdata <- stat
-  
-  posn <- if (stack || percent_stacked) "stack" else position_dodge(width = 0.9)
-  if (prop.multi && plot.type == "bar") {
-    plt <- ggplot(plotdata, aes(x = .group, y = .value, fill = .ident)) +
-      geom_col(position = position_dodge(width = 0.9), color = "black", linewidth = 0.2) +
-      facet_wrap(~ .ident, scales = "free_y", ncol = 1)
-  } else {
-    if (plot.type == "bar") {
-      if (stack || percent_stacked) {
-        plt <- ggplot(plotdata, aes(x = .group, y = .value, fill = .ident)) +
-          geom_col(position = "stack", color = "black", linewidth = 0.2)
-      } else {
-        plt <- ggplot(plotdata, aes(x = .group, y = .value, fill = .ident)) +
-          geom_col(position = position_dodge(width = 0.9), color = "black", linewidth = 0.2)
-      }
-    } else if (plot.type == "point") {
-      plt <- ggplot(plotdata, aes(x = .group, y = .value, color = .ident)) +
-        geom_point(position = position_dodge(width = 0.6), size = 1.8)
-    } else if (plot.type == "box") {
-      plt <- ggplot(plotdata, aes(x = .group, y = .value, fill = .ident)) +
-        geom_boxplot(position = position_dodge(width = 0.9))
-    }
-  }
-  
-  if (plot.type %in% c("bar","box")) {
-    plt <- plt + scale_fill_manual(values = colors, na.value = "grey70")
-  } else {
-    plt <- plt + scale_color_manual(values = colors, na.value = "grey70")
-  }
-  
-  # add CI
-  if (show.ci && !is.null(ci_res)) {
-    pd_ci <- dplyr::left_join(plotdata, ci_res, by = c(".group", ".ident"))
-    if (plot.type == "bar" && !stack) {
-      plt <- plt + geom_errorbar(data = pd_ci, aes(x = .group, ymin = ci.lo, ymax = ci.hi, group = .ident),
-                                 position = position_dodge(width = 0.9), width = 0.2, inherit.aes = FALSE)
-    } else if (plot.type == "bar" && stack) {
-      # skip errorbars for stacked (complex)
-    } else {
-      plt <- plt + geom_errorbar(data = pd_ci, aes(x = .group, ymin = ci.lo, ymax = ci.hi, group = .ident),
-                                 position = position_dodge(width = 0.9), width = 0.2, inherit.aes = FALSE)
-    }
-  }
-  
-  # add counts labels
-  if (add.count.labels && !stack) {
-    plt <- plt + geom_text(data = plotdata, aes(x = .group, y = .value, label = .n, group = .ident),
-                           position = position_dodge(width = 0.9), vjust = -0.4, size = count.label.size, inherit.aes = TRUE)
-  } else if (add.count.labels && stack) {
-    totlab <- plotdata %>% dplyr::group_by(.group) %>% dplyr::summarise(total = sum(.n))
-    plt <- plt + geom_text(data = totlab, aes(x = .group, y = total, label = total), inherit.aes = FALSE, vjust = -0.4, size = count.label.size)
-  }
-  
-  # theme
-  if (publication_style) {
-    plt <- plt + theme_classic(base_size = font.size) +
-      theme(legend.position = legend.position, axis.text = element_text(size = font.size - 1))
-  } else {
-    if (theme == "classic") plt <- plt + theme_classic(base_size = font.size)
-    if (theme == "minimal") plt <- plt + theme_minimal(base_size = font.size)
-    if (theme == "bw") plt <- plt + theme_bw(base_size = font.size)
-    plt <- plt + theme(legend.position = legend.position, legend.text = element_text(size = legend.text.size))
-  }
-  
-  plt <- plt + labs(x = xname, y = ifelse(prop || prop.multi || percent_stacked, "Percent (%)", "Count"), fill = legend.title, color = legend.title)
-  plt <- plt + theme(axis.text.x = element_text(angle = x.angle, hjust = ifelse(x.angle==0, 0.5, 1)))
-  
-  if (coord.flip) plt <- plt + coord_flip()
-  if (!legend) plt <- plt + theme(legend.position = "none")
-  
-  # Draw pairwise brackets (NEW)
-  if (draw_pairwise_brackets && !is.null(pairwise_res) && nrow(pairwise_res)>0) {
-    # pick top-k smallest p-values across all idents
-    prs <- pairwise_res %>% dplyr::filter(!is.na(p.value)) %>% dplyr::arrange(p.value)
-    if (nrow(prs) > 0) {
-      topk <- head(prs, pairwise_topk)
-      # compute x positions
-      xlevels <- levels(data[[xname]])
-      # helper to convert group -> x numeric
-      to_x <- function(g) which(xlevels == g)
-      # create bracket dataframe
-      brdf <- topk %>% dplyr::mutate(xmin = sapply(group1, to_x), xmax = sapply(group2, to_x))
-      # compute y position: max value of the two groups + small nudge
-      maxvals <- plotdata %>% dplyr::group_by(.group) %>% dplyr::summarise(mx = max(.value, na.rm = TRUE))
-      brdf <- brdf %>% dplyr::left_join(maxvals, by = c("group1" = ".group")) %>% dplyr::rename(y1 = mx) %>%
-        dplyr::left_join(maxvals, by = c("group2" = ".group")) %>% dplyr::rename(y2 = mx)
-      brdf <- brdf %>% dplyr::mutate(ypos = pmax(y1, y2) + bracket_nudge * pmax(1, max(plotdata$.value, na.rm = 1)))
-      brdf$label <- if (pval.display == "value") sprintf("p=%.*g", digits, brdf$p.value) else if (pval.display == "stars") p_to_stars(brdf$p.value) else if (pval.display == "both") paste0(p_to_stars(brdf$p.value), " (", sprintf("%.*g", digits, brdf$p.value), ")") else ""
-      # if ggsignif available, make mapping to group names and call geom_signif
-      if (has_ggsignif) {
-        # geom_signif expects x positions as factor labels: we will call via annotate segments+text for reliability
-        for (i in seq_len(nrow(brdf))) {
-          r <- brdf[i,]
-          # draw segment and text
-          plt <- plt + annotate("segment", x = as.numeric(r$xmin), xend = as.numeric(r$xmax), y = r$ypos, yend = r$ypos, colour = "black") +
-            annotate("text", x = mean(c(r$xmin, r$xmax)), y = r$ypos + (0.02 * max(plotdata$.value, na.rm = 1)), label = r$label, size = bracket_text_size)
-        }
-      } else {
-        # fallback: draw segments + text
-        for (i in seq_len(nrow(brdf))) {
-          r <- brdf[i,]
-          plt <- plt + annotate("segment", x = as.numeric(r$xmin), xend = as.numeric(r$xmax), y = r$ypos, yend = r$ypos, colour = "black") +
-            annotate("text", x = mean(c(r$xmin, r$xmax)), y = r$ypos + (0.02 * max(plotdata$.value, na.rm = 1)), label = r$label, size = bracket_text_size)
-        }
-      }
-    }
-  }
-  
-  # Pairwise p-value heatmap (optional)
-  pairwise_heatmap <- NULL
-  if (return_pairwise_heatmap && !is.null(pairwise_res) && nrow(pairwise_res)>0) {
-    # Build matrix of min p-values across idents for each pair (group1,group2)
-    grps <- levels(stat$.group)
-    m <- matrix(NA_real_, nrow = length(grps), ncol = length(grps), dimnames = list(grps,grps))
-    for (i in seq_len(nrow(pairwise_res))) {
-      r <- pairwise_res[i,]
-      g1 <- r$group1; g2 <- r$group2; pv <- r$p.value
-      m[g1,g2] <- pv; m[g2,g1] <- pv
-    }
-    diag(m) <- NA
-    pairwise_heatmap <- as.data.frame(m)
-    if (pairwise_heatmap_plot && has_pheatmap) {
-      mat <- m
-      mat[is.na(mat)] <- 1
-      # log transform for visualization: -log10(p)
-      heat <- -log10(mat)
-      heat[is.infinite(heat)] <- max(heat[is.finite(heat)], na.rm = TRUE)
-      # pheatmap
-      pheatmap::pheatmap(heat, cluster_rows = FALSE, cluster_cols = FALSE,
-                         main = "Pairwise -log10(p)", display_numbers = round(mat, digits))
-    }
-  }
-  
-  # Output
-  out <- list(plot = plt, data = plotdata, totals = totals, within_tests = within_res,
-              pairwise_tests = pairwise_res, ci = ci_res, pairwise_heatmap = pairwise_heatmap)
-  
-  if (return_data) return(out) else return(plt)
-}
 
 #'------------------------------------------------------------------------------
 #'------------------------------------------------------------------------------
@@ -6140,13 +5117,13 @@ highlight_clusters <- function(
         title = legend.title
       )
     ) #+
-    # theme(
-    #   legend.position = legend.position,
-    #   legend.text = element_text(size = legend.text.size),
-    #   text = element_text(size = fontsize)
-    # )
-    
-    plt <- plt +
+  # theme(
+  #   legend.position = legend.position,
+  #   legend.text = element_text(size = legend.text.size),
+  #   text = element_text(size = fontsize)
+  # )
+  
+  plt <- plt +
     theme(
       legend.position = legend.position,
       legend.text = element_text(size = legend.text.size),
@@ -6792,134 +5769,134 @@ plot_expression_heatmap <- function(
     output_pdf = NULL,
     pdf_width = NULL,
     pdf_height = NULL
-    ) {
-      
-      require(Seurat)
-      require(ComplexHeatmap)
-      require(dplyr)
-      require(stringr)
-      require(circlize)
-      require(grid)
-      
-      # Filter only genes present in object
-      genes <- intersect(gene_list, rownames(seurat_obj))
-      sub <- subset(seurat_obj, features = genes)
-      
-      # Compute group-average expression
-      avg_expr <- AverageExpression(
-        sub,
-        group.by = c(celltype_col, sample_col),
-        assays = "RNA",
-        slot = "counts"
-      )$RNA
-      
-      # Normalize rows (Z-score)
-      avg_expr <- avg_expr[!rowSums(is.na(avg_expr)), ]
-      avg_expr <- t(scale(t(avg_expr)))
-      avg_expr[is.na(avg_expr)] <- 0
-      
-      # Order genes by where they peak
-      avg_expr <- avg_expr[order(apply(avg_expr, 1, which.max)), ]
-      
-      # Extract annotations from column names
-      col_parts <- str_split_fixed(colnames(avg_expr), "_", 2)
-      anno_df <- data.frame(
-        CellTypes = col_parts[,1],
-        Samples = col_parts[,2]
+) {
+  
+  require(Seurat)
+  require(ComplexHeatmap)
+  require(dplyr)
+  require(stringr)
+  require(circlize)
+  require(grid)
+  
+  # Filter only genes present in object
+  genes <- intersect(gene_list, rownames(seurat_obj))
+  sub <- subset(seurat_obj, features = genes)
+  
+  # Compute group-average expression
+  avg_expr <- AverageExpression(
+    sub,
+    group.by = c(celltype_col, sample_col),
+    assays = "RNA",
+    slot = "counts"
+  )$RNA
+  
+  # Normalize rows (Z-score)
+  avg_expr <- avg_expr[!rowSums(is.na(avg_expr)), ]
+  avg_expr <- t(scale(t(avg_expr)))
+  avg_expr[is.na(avg_expr)] <- 0
+  
+  # Order genes by where they peak
+  avg_expr <- avg_expr[order(apply(avg_expr, 1, which.max)), ]
+  
+  # Extract annotations from column names
+  col_parts <- str_split_fixed(colnames(avg_expr), "_", 2)
+  anno_df <- data.frame(
+    CellTypes = col_parts[,1],
+    Samples = col_parts[,2]
+  )
+  rownames(anno_df) <- colnames(avg_expr)
+  
+  # Order based on levels in Seurat object (generalized)
+  anno_df$CellTypes <- factor(
+    anno_df$CellTypes,
+    levels = levels(seurat_obj[[celltype_col]][,1])
+  )
+  anno_df$Samples <- factor(
+    anno_df$Samples,
+    levels = levels(seurat_obj[[sample_col]][,1])
+  )
+  
+  # Auto-generate color palettes if missing
+  if (is.null(celltype_palette)) {
+    unique_ct <- levels(anno_df$CellTypes)
+    celltype_palette <- setNames(viridis::viridis(length(unique_ct)), unique_ct)
+  }
+  if (is.null(sample_colors)) {
+    unique_Sample <- levels(anno_df$Samples)
+    sample_colors <- setNames(viridis::viridis(length(unique_Sample)), unique_Sample)
+  }
+  
+  # Build annotation
+  top_anno <- HeatmapAnnotation(
+    df = anno_df,
+    col = list(
+      CellTypes = celltype_palette,
+      Samples = sample_colors
+    ),
+    annotation_name_side = "right",
+    which = "column",
+    show_legend = show_annotation_legend,
+    annotation_legend_param = list(
+      "CellTypes" = list(
+        ncol = 1,
+        border = "black",
+        title_gp = gpar(fontface = "bold"),
+        title_position = "leftcenter-rot",
+        legend.direction = "vertical"
+      ),
+      "Samples" = list(
+        border = "black",
+        title_gp = gpar(fontface = "bold"),
+        title_position = "leftcenter-rot",
+        legend.direction = "vertical"
       )
-      rownames(anno_df) <- colnames(avg_expr)
-      
-      # ✅ Order based on levels in Seurat object (generalized)
-      anno_df$CellTypes <- factor(
-        anno_df$CellTypes,
-        levels = levels(seurat_obj[[celltype_col]][,1])
-      )
-      anno_df$Samples <- factor(
-        anno_df$Samples,
-        levels = levels(seurat_obj[[sample_col]][,1])
-      )
-      
-      # ✅ Auto-generate color palettes if missing
-      if (is.null(celltype_palette)) {
-        unique_ct <- levels(anno_df$CellTypes)
-        celltype_palette <- setNames(viridis::viridis(length(unique_ct)), unique_ct)
-      }
-      if (is.null(sample_colors)) {
-        unique_Sample <- levels(anno_df$Samples)
-        sample_colors <- setNames(viridis::viridis(length(unique_Sample)), unique_Sample)
-      }
-      
-      # Build annotation
-      top_anno <- HeatmapAnnotation(
-        df = anno_df,
-        col = list(
-          CellTypes = celltype_palette,
-          Samples = sample_colors
-        ),
-        annotation_name_side = "right",
-        which = "column",
-        show_legend = show_annotation_legend,
-        annotation_legend_param = list(
-          "CellTypes" = list(
-            ncol = 1,
-            border = "black",
-            title_gp = gpar(fontface = "bold"),
-            title_position = "leftcenter-rot",
-            legend.direction = "vertical"
-          ),
-          "Samples" = list(
-            border = "black",
-            title_gp = gpar(fontface = "bold"),
-            title_position = "leftcenter-rot",
-            legend.direction = "vertical"
-          )
-        ),
-        annotation_name_gp = gpar(fontsize = font.size, fontface = "bold") 
-      )
-      
-      # Italic gene names
-      gene_labels <- as.expression(lapply(
-        rownames(avg_expr),
-        function(x) bquote(italic(.(x)))
-      ))
-      
-      # Create heatmap
-      ht <- Heatmap(
-        avg_expr,
-        name = "Z-score",
-        top_annotation = top_anno,
-        row_labels = gene_labels,
-        row_names_gp = gpar(fontsize = 10),
-        show_column_names = FALSE,
-        cluster_rows = cluster_rows,
-        cluster_columns = cluster_columns,
-        border = TRUE,
-        col = colorRamp2(zlim, gene_colors),
-        column_title_gp = gpar(fontsize = font.size+2, 
-                               fontface="bold.italic"),
-        heatmap_legend_param = list(
-          title = "Z-score",
-          legend.direction = "vertical",  
-          title_position = "leftcenter-rot", 
-          legend_width = unit(4, "cm"),
-          title_position = "topcenter",
-          title_gp = gpar(fontface = "bold"),
-          border = 'black'
-        )
-      )
-      
-      if(!is.null(output_pdf)){
-        pdf(output_pdf, width = pdf_width, height = pdf_height, useDingbats = FALSE)
-        draw(ht, heatmap_legend_side = "right", 
-             annotation_legend_side = "right",
-             merge_legends = TRUE)
-        dev.off()
-      } else {
-        draw(ht, heatmap_legend_side = "right",
-             annotation_legend_side = "right",
-             merge_legends = TRUE)
-      }
-    }
+    ),
+    annotation_name_gp = gpar(fontsize = font.size, fontface = "bold") 
+  )
+  
+  # Italic gene names
+  gene_labels <- as.expression(lapply(
+    rownames(avg_expr),
+    function(x) bquote(italic(.(x)))
+  ))
+  
+  # Create heatmap
+  ht <- Heatmap(
+    avg_expr,
+    name = "Z-score",
+    top_annotation = top_anno,
+    row_labels = gene_labels,
+    row_names_gp = gpar(fontsize = 10),
+    show_column_names = FALSE,
+    cluster_rows = cluster_rows,
+    cluster_columns = cluster_columns,
+    border = TRUE,
+    col = colorRamp2(zlim, gene_colors),
+    column_title_gp = gpar(fontsize = font.size+2, 
+                           fontface="bold.italic"),
+    heatmap_legend_param = list(
+      title = "Z-score",
+      legend.direction = "vertical",  
+      title_position = "leftcenter-rot", 
+      legend_width = unit(4, "cm"),
+      title_position = "topcenter",
+      title_gp = gpar(fontface = "bold"),
+      border = 'black'
+    )
+  )
+  
+  if(!is.null(output_pdf)){
+    pdf(output_pdf, width = pdf_width, height = pdf_height, useDingbats = FALSE)
+    draw(ht, heatmap_legend_side = "right", 
+         annotation_legend_side = "right",
+         merge_legends = TRUE)
+    dev.off()
+  } else {
+    draw(ht, heatmap_legend_side = "right",
+         annotation_legend_side = "right",
+         merge_legends = TRUE)
+  }
+}
 
 
 
@@ -7218,7 +6195,7 @@ plot_gene_score <- function(
   } else if (method == "binary") {
     pal <- c("Positive" = col.feature[2], "None" = col.feature[1])
     p <- cellmap(obj, group.by = meta.flag, reduction = reduction, 
-                  colors = pal, pt.size = pt.size, label = label,...)
+                 colors = pal, pt.size = pt.size, label = label,...)
     # if (overlay.labels) {
     #   emb <- as.data.frame(Embeddings(obj, reduction))
     #   emb$flag <- obj[[meta.flag]][,1]
@@ -8281,20 +7258,20 @@ cell_prediction_heatmap <- function(object,
 #' @import jsonlite
 #' @export
 sankey_plot <- function(seurat_obj, 
-                          selected_vars = c("ann_level_1", "ann_level_2", "ann_level_3"),
-                          plot.title = NULL,
-                          custom_colors = list(),  
-                          text.size = 14,
-                          show_counts = TRUE,
-                          show_percentages = TRUE,
-                          show_labels = TRUE,
-                          label.justify = "left", 
-                          label.nudge = 0.1,
-                          flow.alpha = 0.5,
-                          x.label_position = "top",
-                          custom_x.labels = NULL,  
-                          show_x_axis = TRUE,
-                          prevent_overlap = TRUE) {    
+                        selected_vars = c("ann_level_1", "ann_level_2", "ann_level_3"),
+                        plot.title = NULL,
+                        custom_colors = list(),  
+                        text.size = 14,
+                        show_counts = TRUE,
+                        show_percentages = TRUE,
+                        show_labels = TRUE,
+                        label.justify = "left", 
+                        label.nudge = 0.1,
+                        flow.alpha = 0.5,
+                        x.label_position = "top",
+                        custom_x.labels = NULL,  
+                        show_x_axis = TRUE,
+                        prevent_overlap = TRUE) {    
   
   require(Seurat)
   require(dplyr)
@@ -8617,12 +7594,12 @@ plot_cluster_correlation <- function(object,
   
   # Ensure the assay exists in the object
   # if (!(assay %in% Assays(object))) {
-  #   stop(paste("❌ Assay", assay, "not found in the Seurat object."))
+  #   stop(paste("Assay", assay, "not found in the Seurat object."))
   # }
   
   # Set identity class based on the group.by column
   if (!group.by %in% colnames(object@meta.data)) {
-    stop(paste("❌ Column", group.by, "not found in metadata."))
+    stop(paste("Column", group.by, "not found in metadata."))
   }
   
   Idents(object) <- object@meta.data[[group.by]]
@@ -9119,11 +8096,11 @@ plot_sex_eryth_qc <- function(meta_df, tbl_summary,
   # 5) Cells before/after QC per sample (dodge bars)
   tbl2 <- tbl_summary %>%
     dplyr::mutate(n_before = n_cells,
-           n_after  = n_before - n_removed) %>%
+                  n_after  = n_before - n_removed) %>%
     dplyr::select(sample, n_before, n_after) %>%
     tidyr::pivot_longer(cols = c(n_before, n_after),
-                 names_to = "stage",
-                 values_to = "n_cells") %>%
+                        names_to = "stage",
+                        values_to = "n_cells") %>%
     dplyr::mutate(stage = recode(stage, n_before="Pre-sex-QC", n_after="Post-sex-QC"),
                   stage = factor(stage, levels = c("Pre-sex-QC","Post-sex-QC")))  # enforce order
   
@@ -10108,4 +9085,379 @@ gsetplot <- function(
   )
   
   return(out)
+}
+
+
+#'------------------------------------------------------------------------------
+#'------------------------------------------------------------------------------
+#' Find Marker Genes in a Seurat Object
+#' This function identifies marker genes for specified clusters in a Seurat object
+#' using differential expression testing within each cluster.
+#' Run Seurat::FindMarkers across clusters with multiple tests + consensus support + visualization
+#'
+#' @param object Seurat object
+#' @param group.by Metadata column for clustering/identity
+#' @param test.use Differential test(s) ("wilcox", "bimod", "roc", "t",
+#'   "negbinom", "poisson", "LR", "MAST" or "all")
+#' @param only.pos Keep only positive markers (default TRUE)
+#' @param min.pct Minimum fraction of cells expressing a gene (default 0.25)
+#' @param min.diff.pct Minimum difference in pct (default -Inf)
+#' @param man.logfc.threshold LogFC threshold (default 0.25)
+#' @param clusters.to.exclude Clusters to skip (default none)
+#' @param max.cells.per.ident Downsample max cells per cluster (default Inf)
+#' @param consensus Logical, if TRUE build consensus markers across tests
+#' @param consensus_min_tests Integer, minimum number of tests a gene must be significant in
+#' @param alpha Adjusted p-value threshold for significance (default 0.05)
+#' @param return_both Logical, return both raw + consensus results (default FALSE)
+#' @param plot_type "none", "bar", or "upset" (default "none")
+#' @param plot_cluster Cluster name for upset plot (default first cluster)
+#' @param ... Passed to Seurat::FindMarkers
+#'
+#' @return Data frame(s) of markers, optionally with ggplot object
+#' @export
+cellmarker <- function(object,
+                       group.by,
+                       features = NULL,
+                       test.use = 'wilcox',
+                       only.pos = TRUE,
+                       min.pct = 0.01,
+                       min.diff.pct = -Inf,
+                       logfc.threshold = 0.1,
+                       clusters.to.exclude = c(),
+                       max.cells.per.ident = Inf, 
+                       latent.vars = NULL,
+                       consensus = FALSE,
+                       consensus_min_tests = 2,
+                       alpha = 0.05,
+                       return_both = FALSE,
+                       plot_type = c("none","bar","upset"),
+                       plot_cluster = NULL,
+                       ...) {
+  
+  requireNamespace("ggplot2")
+  if ("upset" %in% plot_type) requireNamespace("UpSetR")
+  
+  if (!inherits(object, "Seurat")) stop("The provided object is not a Seurat object.")
+  
+  if (!missing(group.by)) object <- Seurat::SetIdent(object = object, value = group.by)
+  
+  valid_tests <- c("wilcox", "bimod", "roc", "t", 
+                   "negbinom", "poisson", "LR", "MAST")
+  
+  if (identical(test.use, "all")) {
+    tests_to_run <- valid_tests
+  } else {
+    if (!all(test.use %in% valid_tests)) stop(paste("Invalid test.use. Choose from:", paste(valid_tests, collapse = ", ")))
+    tests_to_run <- test.use
+  }
+  
+  clusters.to.test <- sort(unique(object@active.ident))
+  clusters.to.test <- setdiff(clusters.to.test, clusters.to.exclude)
+  
+  results_all <- list()
+  
+  for (test in tests_to_run) {
+    message("=== Running test: ", test, " ===")
+    joined <- data.frame()
+    
+    for (i in seq_along(clusters.to.test)) {
+      cluster <- clusters.to.test[i]
+      message(sprintf("[ %d / %d ] %s - cluster: %s ...", 
+                      i, length(clusters.to.test), test, cluster))
+      
+      markers <- Seurat::FindMarkers(
+        object,
+        ident.1 = cluster, 
+        ident.2 = NULL, 
+        features = features,
+        only.pos = only.pos, 
+        assay = "RNA", 
+        slot = "data",
+        test.use = test,
+        min.pct = min.pct,
+        min.cells.group = 3,
+        min.diff.pct = min.diff.pct,
+        logfc.threshold = logfc.threshold,
+        max.cells.per.ident = max.cells.per.ident, 
+        latent.vars = latent.vars,
+        ...
+      )
+      
+      if (!is.null(markers) && nrow(markers) > 0) {
+        markers$cluster <- cluster
+        markers$gene <- rownames(markers)
+        markers$test.use <- test
+        rownames(markers) <- NULL
+        joined <- rbind(joined, markers)
+      } else {
+        message(sprintf("Skipping cluster '%s': no markers found.", cluster))
+      }
+    }
+    
+    results_all[[test]] <- joined
+  }
+  
+  all_results <- dplyr::bind_rows(results_all)
+  
+  #- Single test shortcut-
+  if (length(tests_to_run) == 1 && !consensus && !return_both) {
+    return(all_results)
+  }
+  
+  #- Consensus / visualization-
+  consensus_df <- NULL
+  if (consensus || return_both) {
+    consensus_df <- all_results %>%
+      dplyr::filter(p_val_adj <= alpha) %>%
+      dplyr::group_by(cluster, gene) %>%
+      dplyr::summarise(
+        n_tests = dplyr::n_distinct(test.use),
+        mean_logFC = mean(avg_log2FC, na.rm = TRUE),
+        min_p_val_adj = min(p_val_adj, na.rm = TRUE),
+        .groups = "drop"
+      ) %>%
+      dplyr::filter(n_tests >= consensus_min_tests)
+  }
+  
+  plot_type <- match.arg(plot_type)
+  plt <- NULL
+  
+  if (plot_type == "bar") {
+    marker_counts <- all_results %>%
+      dplyr::filter(p_val_adj <= alpha) %>%
+      dplyr::group_by(cluster, test.use) %>%
+      dplyr::summarise(n_genes = dplyr::n(), .groups = "drop")
+    
+    plt <- ggplot2::ggplot(marker_counts, 
+                           ggplot2::aes(x = cluster, y = n_genes, fill = test.use)) +
+      ggplot2::geom_bar(stat="identity", position="dodge") +
+      plot_theme(theme.type = "classic", x.angle = 45) +
+      ggplot2::labs(title="Significant markers per test per cluster", 
+                    y="Number of markers", x="Cluster")
+  }
+  
+  if (plot_type == "upset") {
+    if (is.null(plot_cluster)) plot_cluster <- clusters.to.test[1]
+    df_upset <- all_results %>%
+      dplyr::filter(cluster == plot_cluster, p_val_adj <= alpha) %>%
+      dplyr::select(gene, test.use) %>%
+      dplyr::distinct()
+    
+    mat <- table(df_upset$gene, df_upset$test.use) > 0
+    plt <- UpSetR::upset(UpSetR::fromMatrix(mat), 
+                         mainbar.y.label = paste("Overlap of markers -", plot_cluster))
+  }
+  
+  if (return_both) return(list(raw = all_results, consensus = consensus_df, plot = plt))
+  if (consensus) return(list(consensus = consensus_df, plot = plt))
+  
+  return(list(raw = all_results, plot = plt))
+}
+
+
+#'------------------------------------------------------------------------------
+#'------------------------------------------------------------------------------
+#' Identify Temporally Regulated Genes Along Pseudotime
+#'
+#' This function identifies genes whose expression varies significantly
+#' along pseudotime within selected cell types. It supports Slingshot
+#' pseudotime objects (`sds_obj`) or a user-provided pseudotime matrix (`pt_matrix`).
+#' Genes are filtered by variability, minimum expression, pseudotime range,
+#' and minimal dynamic range (logFC). Candidate genes are tested via GAM
+#' (`mgcv::gam`) for significant smooth changes along pseudotime.
+#'
+#' @param seurat_obj Seurat object containing expression data.
+#' @param sds_obj Optional \code{SlingshotDataSet} object with pseudotime estimates.
+#' @param pt_matrix Optional numeric matrix of pseudotime values
+#'   (cells × lineages). Used if \code{sds_obj} is not provided.
+#' @param annotation_level Metadata column name specifying cell type labels
+#'   (default: `"ann_level_2"`).
+#' @param selected_celltypes Vector of cell types to include (default:
+#'   `c("OHBC","GBC","INP","iOSN")`).
+#' @param assay Assay name in Seurat object (default: `"RNA"`).
+#' @param expr_slot Expression slot to use (default: `"data"`).
+#' @param n_var_genes Number of highly variable genes to preselect for testing.
+#' @param min_cells_expressed Minimum number of cells a gene must be expressed in.
+#' @param min_pct_cells Minimum fraction of cells expressing a gene.
+#' @param min_pt_range Minimum pseudotime range over which a gene is expressed.
+#' @param min_logFC Minimum dynamic range (max − min expression) required.
+#' @param gam_k Number of basis functions used in GAM smoothing (default: 6).
+#' @param top_n Optional integer. If provided, extracts the top-n significant genes for heatmap use.
+#' @param qval_cutoff Adjusted p-value (FDR) threshold for significance.
+#' @param verbose Logical; print progress messages.
+#'
+#' @return A list containing:
+#' \describe{
+#'   \item{lineage_results}{A list of data frames per lineage,
+#'     containing p-values, q-values, and significant genes.}
+#'   \item{heatmap_matrices}{A list of matrices per lineage:
+#'     raw expression, scaled expression (all significant genes),
+#'     scaled expression for top N genes, and ordered cell order.}
+#'   \item{pt_used}{The pseudotime matrix used for analysis.}
+#' }
+#'
+#' @details
+#' Filtering steps:
+#' \enumerate{
+#'   \item Highest-variable genes preselected.
+#'   \item Genes must be expressed in sufficient cells.
+#'   \item Genes must span a minimum pseudotime window.
+#'   \item Genes must show sufficient dynamic range (logFC).
+#' }
+#'
+#' GAM testing is performed using: \code{y ~ s(pt, k = gam_k)}.
+#'
+#' @import mgcv Seurat dplyr matrixStats tibble
+#'
+#' @examples
+#' \dontrun{
+#' result <- identify_temporal_genes(
+#'   seurat_obj = seurat_obj,
+#'   sds_obj = slingshot_obj,
+#'   selected_celltypes = c("iOSN")
+#' )
+#' }
+#'
+#' @export
+#' 
+identify_temporal_genes <- function(seurat_obj,
+                                    sds_obj = NULL,
+                                    pt_matrix = NULL,
+                                    annotation_level = "ann_level_2",
+                                    selected_celltypes = c("OHBC","GBC","INP","iOSN"),
+                                    assay = "RNA",
+                                    expr_slot = "data",
+                                    n_var_genes = 500,
+                                    min_cells_expressed = 10,
+                                    min_pct_cells = 0.05,
+                                    min_pt_range = 0.15,
+                                    min_logFC = 0.5,
+                                    gam_k = 6,
+                                    top_n = NULL,      # optional
+                                    qval_cutoff = 0.05,
+                                    verbose = TRUE) {
+  
+  require(mgcv); require(Seurat); require(dplyr); require(matrixStats); require(tibble)
+  
+  if (is.null(sds_obj) && is.null(pt_matrix)) stop("Provide sds_obj or pt_matrix")
+  
+  cells_sel <- WhichCells(seurat_obj, idents = selected_celltypes)
+  pt_full <- if(is.null(pt_matrix)) slingPseudotime(sds_obj) else pt_matrix
+  common_cells <- intersect(rownames(pt_full), colnames(seurat_obj))
+  cells_use <- intersect(common_cells, cells_sel)
+  pt_full <- pt_full[cells_use,, drop=FALSE]
+  
+  expr_all <- as.matrix(GetAssayData(seurat_obj, assay=assay, slot=expr_slot))[,cells_use, drop = FALSE]
+  var_feats <- rownames(expr_all)[order(rowVars(expr_all), decreasing=TRUE)][1:min(n_var_genes, nrow(expr_all))]
+  
+  lineage_results <- list()
+  heatmap_matrices <- list()
+  
+  for(li in seq_len(ncol(pt_full))){
+    
+    lineage_name <- colnames(pt_full)[li]
+    if(verbose) message("Processing ", lineage_name, " ...")
+    
+    pts <- pt_full[, li]
+    valid_cells <- names(pts)[!is.na(pts)]
+    pts <- pts[valid_cells]
+    expr <- expr_all[var_feats, valid_cells, drop = FALSE]
+    
+    # filtering
+    expressed_counts <- rowSums(expr > 0)
+    cells_min <- max(min_cells_expressed, ceiling(min_pct_cells * length(valid_cells)))
+    keep1 <- names(expressed_counts)[expressed_counts >= cells_min]
+    if(length(keep1) == 0) {
+      if(verbose) message("  No genes after expression filter; skipping")
+      lineage_results[[lineage_name]] <- tibble()
+      heatmap_matrices[[lineage_name]] <- list(expr_raw = NULL, expr_scaled_top = NULL, ordered_cells = names(sort(pts)), top_genes = NULL)
+      next
+    }
+    
+    expr_pt_ranges <- t(apply(expr[keep1, , drop=FALSE] > 0, 1, function(x) {
+      r <- range(pts[x], na.rm=TRUE)
+      if (any(is.na(r))) return(c(NA, NA))
+      r
+    }))
+    expr_pt_range <- expr_pt_ranges[,2] - expr_pt_ranges[,1]
+    keep2 <- names(expr_pt_range)[!is.na(expr_pt_range) & expr_pt_range >= min_pt_range]
+    if(length(keep2) == 0) {
+      if(verbose) message("  No genes after pseudotime-range filter; skipping")
+      lineage_results[[lineage_name]] <- tibble()
+      heatmap_matrices[[lineage_name]] <- list(expr_raw = NULL, expr_scaled_top = NULL, ordered_cells = names(sort(pts)), top_genes = NULL)
+      next
+    }
+    
+    logfc <- matrixStats::rowMaxs(expr[keep2, , drop=FALSE]) - matrixStats::rowMins(expr[keep2, , drop=FALSE])
+    keep3 <- names(logfc)[!is.na(logfc) & logfc >= min_logFC]
+    if(length(keep3) == 0) {
+      if(verbose) message("  No genes after logFC filter; skipping")
+      lineage_results[[lineage_name]] <- tibble()
+      heatmap_matrices[[lineage_name]] <- list(expr_raw = NULL, expr_scaled_top = NULL, ordered_cells = names(sort(pts)), top_genes = NULL)
+      next
+    }
+    
+    if(verbose) message("  Candidate genes: ", length(keep3))
+    
+    # GAM testing
+    pvals <- setNames(rep(NA_real_, length(keep3)), keep3)
+    for(g in keep3){
+      d <- data.frame(y = as.numeric(expr[g, ]), pt = as.numeric(pts))
+      if(sd(d$y, na.rm = TRUE) == 0) next
+      m <- tryCatch(mgcv::gam(y ~ s(pt, k = gam_k), data = d), error = function(e) NULL)
+      if(!is.null(m)){
+        sst <- summary(m)$s.table
+        if(!is.null(sst)) {
+          pvals[g] <- if("p-value" %in% colnames(sst)) sst[1, "p-value"] else sst[1, ncol(sst)]
+        }
+      }
+    }
+    
+    res_df <- tibble(id = names(pvals), raw_p = as.numeric(pvals)) %>%
+      filter(!is.na(raw_p)) %>%
+      mutate(qval = p.adjust(raw_p, method = "fdr")) %>%
+      arrange(qval)
+    
+    # all significant genes (full table)
+    sig_df <- res_df %>% filter(qval <= qval_cutoff)
+    if(verbose) message("  Significant genes: ", nrow(sig_df))
+    
+    ord_cells <- names(sort(pts))
+    
+    # Always store expr_raw for the significant genes (could be zero rows)
+    if(nrow(sig_df) > 0) {
+      expr_raw_sig <- as.matrix(expr[sig_df$id, ord_cells, drop = FALSE])
+      # scale for inspection (not required for plotting; plot function may re-scale or smooth)
+      expr_scaled_all_sig <- t(scale(t(expr_raw_sig)))
+      expr_scaled_all_sig[is.na(expr_scaled_all_sig)] <- 0
+    } else {
+      expr_raw_sig <- NULL
+      expr_scaled_all_sig <- NULL
+    }
+    
+    # If user requested top_n, compute expr_scaled_top and top_genes
+    if(!is.null(top_n) && nrow(sig_df) > 0) {
+      top_genes <- head(sig_df$id, top_n)
+      expr_sub <- as.matrix(expr[top_genes, ord_cells, drop = FALSE])
+      expr_scaled_top <- t(scale(t(expr_sub))); expr_scaled_top[is.na(expr_scaled_top)] <- 0
+    } else {
+      top_genes <- NULL
+      expr_scaled_top <- NULL
+    }
+    
+    lineage_results[[lineage_name]] <- sig_df
+    heatmap_matrices[[lineage_name]] <- list(
+      expr_raw = expr_raw_sig,            # raw expr for *all* significant genes
+      expr_scaled_top = expr_scaled_top,  # scaled expr matrix for top_n (NULL if not requested)
+      expr_scaled_all = expr_scaled_all_sig, # scaled expr matrix for all sig genes (may be NULL)
+      ordered_cells = ord_cells,
+      top_genes = top_genes
+    )
+  }
+  
+  return(list(
+    lineage_results = lineage_results,
+    heatmap_matrices = heatmap_matrices,
+    pt_used = pt_full
+  ))
 }
