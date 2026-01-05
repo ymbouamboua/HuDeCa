@@ -1,0 +1,371 @@
+---
+title: "HUDECA — Figure 4: Transcription factors (TFs) activities in olfactory sensory epithelium"
+author: "Mbouamboua Yvon <yvon.mbouamboua@inserm.fr>"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+date: '`r format(Sys.Date())`'
+---
+
+## Goal
+Final figures
+
+## Setup
+```{r setup, include=TRUE, message=FALSE, warning=FALSE}
+
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, comment = "")
+dir.main <- "/Users/yvon.mbouamboua/projects/singlecell/000-hudeca-nose"
+dir.results <- file.path(dir.main, "output", "010-figures/figure4")
+dir.create(dir.results, showWarnings = FALSE, recursive = TRUE)
+dir.create(file.path(dir.results, "data"), showWarnings = FALSE)
+
+# Load packages
+packages <- c("Seurat", "ggplot2", "dplyr", "grid", "decoupleR",
+"SingleCellExperiment", "scran", "scater", "slingshot",
+"pheatmap", "ComplexHeatmap", "ComplexUpset", "patchwork")
+install_and_load <- function(pkg) {
+  if (!requireNamespace(pkg, quietly = TRUE)) install.packages(pkg)
+  library(pkg, character.only = TRUE)
+}
+invisible(lapply(packages, install_and_load))
+
+# Load helper functions
+utils_dir <- "~/projects/apps/"
+r_files <- list.files(utils_dir, pattern = "\\.R$", full.names = TRUE)
+invisible(lapply(r_files, source))
+
+# Load custom colors 
+custom_colors <-  readRDS(file.path(dir.main, "analysis/custom-colors-nature-safe.rds"))
+
+```
+
+
+# Load data
+
+```{r}
+
+obj <- readRDS(file.path(dir.main, "output/002-annotation/data/FN_harmony_clean.rds"))
+
+```
+
+
+```{r}
+
+Idents(obj) <- "ann2"
+sub <- seurat_subset(obj,  group.by = "ann2",  use.harmony = T,  harmony.group = "sample",
+                     min.dist = 1, spread = 0.5,  idents = c("OHBC","CycBasal", "MV","SUS","GBC","INP","iOSN"))
+
+sub <- genefilter(sub)
+
+cellmap(sub, group.by = "ann2", label = T, label.size = 5,legend = F, 
+              pt.size = 1, cols = custom_colors$ann2, no.axes = F, figplot = T, plot.ttl = "")
+
+```
+
+
+## Fig4a
+
+```{r fig.width=5, fig.height=11}
+
+# TF Activity Heatmap (ULM – decoupleR + ComplexHeatmap) 
+
+# Load data and run ULM
+net <- readRDS("~/projects/singlecell/000-hudeca-nose/data/processed/net.rds")
+mat <- as.matrix(Seurat::GetAssayData(sub, assay = "RNA", slot = "data"))
+acts <- decoupleR::run_ulm(mat = mat, net = net, .source = "source", .target = "target", .mor = "mor", minsize = 5)
+saveRDS(acts, file.path(dir.results, "data/acts.rds"))
+acts <- readRDS(file.path(dir.results, "data/acts.rds"))
+
+# Add TF activity as new assay
+sub[["tfsulm"]] <- acts |>
+  tidyr::pivot_wider(id_cols = "source", names_from = "condition", values_from = "score") |>
+  tibble::column_to_rownames("source") |>
+  Seurat::CreateAssayObject()
+
+Seurat::DefaultAssay(sub) <- "tfsulm"
+sub <- Seurat::ScaleData(sub)
+sub@assays$tfsulm@data <- sub@assays$tfsulm@scale.data
+Seurat::Idents(sub) <- "ann2"
+
+# Aggregate by cluster and group 
+# Build long DF with TF activity 
+df <- t(as.matrix(sub@assays$tfsulm@data)) |>
+  as.data.frame() |>
+  dplyr::mutate(cluster = Seurat::Idents(sub), group = sub$group) |>
+  tidyr::pivot_longer(-c(cluster, group), names_to = "TF", values_to = "score") |>
+  dplyr::group_by(cluster, group, TF) |>
+  dplyr::summarise(mean_score = mean(score), .groups = "drop")
+
+# Known TFs in olfactory epithelium 
+known_TFs <- c(
+  "TP63","KLF4","KLF5","SOX2","HES1","HES5","ID1","ID2","ID3",
+  "NFIA","NFIB","NFIX","RUNX1","RUNX2","FOXO1","FOXO3",
+  "ASCL1","NEUROG1","NEUROD1","HES6","ATOH1",
+  "E2F1","E2F2","E2F3","E2F4","E2F5","E2F6","E2F7","E2F8",
+  "MYC","MYCN","EGR1","EGR2","EGR3","ZIC2","ZIC3","DLX1","DLX2",
+  "LHX2","EBF1","EBF2","EBF3","POU2F1","ATF5","RFX1","RFX2","RFX3","RFX5",
+  "ZFP423","ZBTB20","CREB1","MEF2A","MEF2C","ARID3A","ARID3B","ARID5A",
+  "SOX9","FOXA1","FOXA2","HNF1B","GATA2","GATA3","CEBPA","CEBPB","NR1H3","KLF15",
+  "POU2F3","GFI1B","SPIB","IRF4","IRF8",
+  "BHLHE22","BHLHE23","MECOM","SOX4","SOX11",
+  "PAX6","OTX1","OTX2","DLX5","DLX6"
+)
+
+# Select ALL known TFs + top variable TFs 
+top_tfs <- df |>
+  dplyr::group_by(TF) |>
+  dplyr::summarise(sd = sd(mean_score)) |>
+  dplyr::arrange(desc(sd)) |>
+  dplyr::slice_head(n = 20) |>
+  dplyr::pull(TF)
+
+selected_TFs <- union(known_TFs, top_tfs)
+
+# Filter data for selected TFs 
+df_sel <- df |> filter(TF %in% selected_TFs)
+
+#  Prepare heatmap matrix 
+ht_data <- df_sel |>
+  tidyr::pivot_wider(id_cols = c("cluster", "group"),
+              names_from = "TF",
+              values_from = "mean_score") |>
+  tidyr::unite("ID", cluster, group, sep = "_") |>
+  tibble::column_to_rownames("ID") |>
+  as.matrix()
+
+ht_data[is.na(ht_data)] <- 0
+
+# Annotations 
+anno <- stringr::str_split_fixed(rownames(ht_data), "_", 2) |>
+  as.data.frame() |>
+  stats::setNames(c("Cells", "Groups"))
+rownames(anno) <- rownames(ht_data)
+
+group_order <- c("PCW7-8", "PCW10", "PCW12")
+cell_order <- c("OHBC", "CycBasal", "MV", "SUS", "GBC", "INP", "iOSN")
+
+anno$Groups <- factor(anno$Groups, levels = group_order)
+anno$Cells <- factor(anno$Cells, levels = cell_order)
+
+# Reorder columns
+mtx <- t(ht_data)[, order(anno$Cells, anno$Groups)]
+mtx <- mtx[order(apply(mtx, 1, which.max)), ]
+
+# Normalize rows (Z-score)
+mtx <- mtx[!rowSums(is.na(mtx)), ]
+mtx <- t(scale(t(mtx)))
+mtx[is.na(mtx)] <- 0
+
+# ComplexHeatmap 
+col_fun <- circlize::colorRamp2(c(-2, 0, 2), c("darkblue", "white", "darkred"))
+
+# Annotation colors MUST be named by factor levels
+# Ensure names match factor levels
+cell_cols <- custom_colors$OE[cell_order]
+group_cols <- custom_colors$group[group_order]
+
+# Build annotation object
+ha <- ComplexHeatmap::HeatmapAnnotation(
+  Groups   = anno$Groups,
+  Cells = anno$Cells,
+  col = list(
+    Groups   = group_cols,
+    Cells = cell_cols
+  ),
+  annotation_legend_param = list(
+    Groups = list(
+      border = "black",
+      title_gp = grid::gpar(fontsize = 10, fontface = "bold"),
+      labels_gp = gpar(fontsize = 10)
+    ),
+    Cells = list(
+      border = "black",
+      title_gp = grid::gpar(fontsize = 10, fontface = "bold"),
+      labels_gp = gpar(fontsize = 10)
+    )
+  ),
+  annotation_name_gp = grid::gpar(fontsize = 10, fontface = "bold")
+)
+
+
+ht <- ComplexHeatmap::Heatmap(
+  mtx,
+  name = "TF Activity",
+  col = col_fun,
+  top_annotation = ha,
+  cluster_columns = FALSE,
+  cluster_rows = FALSE,
+  show_column_names = FALSE,
+  row_names_gp = grid::gpar(fontsize = 10),
+  border = TRUE,
+   column_title_gp = gpar(fontsize = 10, fontface="bold"),
+    heatmap_legend_param = list(
+      #title = "Z-score",
+      legend_direction = "vertical",  
+      #title_position = "leftcenter-rot", 
+      legend_width = unit(4, "cm"),
+      #title_position = "topcenter",
+      title_gp = gpar(fontsize = 10, fontface = "bold"),
+      border = 'black'
+    )
+)
+
+ComplexHeatmap::draw(
+  ht,
+  merge_legend = TRUE,
+  heatmap_legend_side = "right",
+  annotation_legend_side = "right"
+)
+
+save_heatmap(ht = ComplexHeatmap::draw(ht, merge_legend = TRUE, heatmap_legend_side = "right", 
+                                   annotation_legend_side = "right"), 
+        filename = file.path(dir.results, "fig4a"), format = c("pdf","png"),
+             width = 5, height = 11)
+
+```
+
+
+## Fig4b
+
+```{r fig.width=3, fig.height=12}
+tf1 <- c(
+  "PHOX2A",   # strongest positive TF
+  "OTX2",     # neural patterning / OSN development
+  "FOXA1",    # sustentacular / epithelial maturation
+  "NFKBIZ",   # OE immune/stress niche regulator
+  "HOXC8"    # developmental patterning TF
+  # "ARID1B",   # chromatin remodeling in fetal development
+  # "EBF1",     # OSN differentiation regulator
+  # "NEUROD2",  # neuronal maturation
+  # "BARX2",    # epithelial development
+  # "ID2"       # progenitor maintenance
+)
+
+tf2 <- c(
+  # "PHOX2A",   # strongest positive TF
+  # "OTX2",     # neural patterning / OSN development
+  # "FOXA1",    # sustentacular / epithelial maturation
+  # "NFKBIZ",   # OE immune/stress niche regulator
+  # "HOXC8",    # developmental patterning TF
+  "ARID1B",   # chromatin remodeling in fetal development
+  "EBF1",     # OSN differentiation regulator
+  "NEUROD2",  # neuronal maturation
+  "BARX2",    # epithelial development
+  "ID2"       # progenitor maintenance
+)
+
+
+# tf_subset_compact <- c(
+#   "PHOX2A",
+#   "OTX2",
+#   #"FOXA1",
+#   "ARID1B",
+#   "EBF1",
+#   "NEUROD2"
+# )
+```
+
+
+
+
+```{r fig.width=2, fig.height=10}
+
+p <- plot_tf_activity(
+  seurat_object = sub,
+  tf_list = tf1,
+  group.by = "ann2",
+  assay_activity = "tfsulm",
+  low_color = "navy",
+  high_color = "darkred",
+  fontsize = 10,
+  ncol = 1,
+  zscore = T,
+  leg.pos = "bottom",
+  zscore_mode = "global"
+)
+
+p
+savefig(fig = p, filename = file.path(dir.results, "fig4a1.1"), width = 2, height = 10)
+
+
+p <- plot_tf_activity(
+  seurat_object = sub,
+  tf_list = tf2,
+  group.by = "ann2",
+  assay_activity = "tfsulm",
+  low_color = "navy",
+  high_color = "darkred",
+  fontsize = 10,
+  ncol = 1,
+  zscore = TRUE,
+  leg.pos = "bottom",
+  zscore_mode = "global"
+)
+
+p
+savefig(fig = p, filename = file.path(dir.results, "fig4a1.2"), width = 2, height = 10)
+
+```
+
+
+```{r fig.width=2, fig.height=10}
+
+p <- cellfeat(sub, features = tf1,
+                  ncol = 1, merge_legend = T,
+                  no_axes = T, #pt.size = 1, 
+                  merge.leg.pos = "bottom", 
+                  legend.orientation = "horizontal",
+                  legend.width = 6,
+                  base_size = 10,
+                  legend.height = 0.6)
+p
+savefig(fig = p, filename = file.path(dir.results, "fig4a2.1"), width = 2, height = 10)
+
+p <- cellfeat(sub, features = tf2,
+                  ncol = 1, merge_legend = T,
+                  no_axes = T, #pt.size = 1,
+                  merge.leg.pos = "bottom", 
+                  legend.orientation = "horizontal",
+                  legend.width = 6,
+                  base_size = 10,
+                  legend.height = 0.6)
+p
+savefig(fig = p, filename = file.path(dir.results, "fig4a2.2"), width = 2, height = 10)
+
+```
+
+
+
+
+
+## Fig4c
+
+```{r fig.width=20, fig.height=15}
+
+tf_subset <- c(
+  "PHOX2A",   # strongest positive TF
+  "OTX2",     # neural patterning / OSN development
+  "FOXA1",    # sustentacular / epithelial maturation
+  "NFKBIZ",   # OE immune/stress niche regulator
+  "HOXC8",    # developmental patterning TF
+  "ARID1B",   # chromatin remodeling in fetal development
+  "EBF1",     # OSN differentiation regulator
+  "NEUROD2",  # neuronal maturation
+  "BARX2",    # epithelial development
+  "ID2"       # progenitor maintenance
+)
+
+p <- plot_tf_network(net = net, selected_sources = tf_subset, label_size = 3)
+p
+savefig(fig = p, filename = file.path(dir.results, "fig4c"), width = 20, height = 15)
+
+
+```
+
+# Session Info
+
+```{r session_info}
+utils::capture.output(devtools::session_info())
+```
