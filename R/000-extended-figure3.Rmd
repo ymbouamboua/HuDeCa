@@ -1,0 +1,230 @@
+---
+title: "HUDECA — Extended Data Figure 3: Sex assignment quality control Detection of maternal erythroid contamination"
+author: "Mbouamboua Yvon <yvon.mbouamboua@inserm.fr>"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+date: '`r format(Sys.Date())`'
+---
+
+## Goal
+Final figures
+
+## Setup
+```{r setup, include=TRUE, message=FALSE, warning=FALSE}
+
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, comment = "")
+dir.main <- "/Users/yvon.mbouamboua/projects/singlecell/000-hudeca-nose"
+dir.results <- file.path(dir.main, "output", "010-figures/extended-figure3")
+dir.create(dir.results, showWarnings = FALSE, recursive = TRUE)
+dir.create(file.path(dir.results, "data"), showWarnings = FALSE)
+
+# Load packages
+packages <- c("Seurat", "ggplot2", "dplyr", "grid", "decoupleR",
+"SingleCellExperiment", "scran", "scater", "slingshot",
+"pheatmap", "ComplexHeatmap", "ComplexUpset", "patchwork")
+install_and_load <- function(pkg) {
+  if (!requireNamespace(pkg, quietly = TRUE)) install.packages(pkg)
+  library(pkg, character.only = TRUE)
+}
+invisible(lapply(packages, install_and_load))
+
+# Load helper functions
+utils_dir <- "~/projects/apps/"
+r_files <- list.files(utils_dir, pattern = "\\.R$", full.names = TRUE)
+invisible(lapply(r_files, source))
+
+# Load custom colors 
+custom_colors <-  readRDS(file.path(dir.main, "analysis/custom-colors-nature-safe.rds"))
+
+```
+
+
+# Load data
+
+```{r}
+
+obj <- readRDS(file.path(dir.main, "output/002-annotation/data/FN_harmony_clean.rds"))
+integrated <- readRDS(file.path(dir.main, "output/002-annotation/data/FN_harmony.rds"))
+
+```
+
+
+
+# FigS2e
+
+```{r}
+
+# Run QC and generate violin plots
+res <- sex_contamination_qc(
+  integrated,
+  sample_col = "sample",
+  y_genes = c("UTY","RPS4Y1","ZFY","DDX3Y","KDM5D"),
+  xist_gene = "XIST",
+  eps = 1e-6,
+  female_thresh = 1,
+  male_thresh = -1,
+  eryth_genes = c("HBB","HBA1","HBA2","HBE1","HBG1","HBG2","HBM"),
+  eryth_percentile = 0.95,
+  remove_ambiguous = T,
+  majority_threshold = 0.5,
+  min_sex_score_diff = NULL,
+  out_file = file.path(dir.results, "data/sex_qc.tsv")
+)
+
+# Access results
+tbl_summary <- res$tbl_summary
+integrated <- res$object
+#filt <- NormalizeData(filt) %>% FindVariableFeatures() %>% ScaleData()
+rm(res)
+tbl_summary
+
+# saveRDS(obj, file.path(dir.main, "output/002-annotation/data/FN_harmony.rds"))
+# saveRDS(filt, file.path(dir.main, "output/002-annotation/data/FN_harmony_clean.rds"))
+
+```
+
+
+
+
+```{r fig.width=4, fig.height=4}
+
+tbl_summary <- read.delim(file.path(dir.results, "data/sex_qc.tsv"))
+# Sex classification fraction barplot
+df_sex_long <- tbl_summary %>%
+  dplyr::select(sample, frac_female_like, frac_male_like, frac_ambiguous) %>%
+  tidyr::pivot_longer(
+    cols = starts_with("frac_"),
+    names_to = "sex_class",
+    values_to = "fraction"
+  ) %>%
+  mutate(sex_class = recode(sex_class,
+                            frac_female_like="Female-like",
+                            frac_male_like="Male-like",
+                            frac_ambiguous="Ambiguous"))
+
+p1 <- ggplot(df_sex_long, aes(x=sample, y=fraction, fill=sex_class)) +
+  geom_col(width=0.6, color="black", linewidth=0.2) +
+  scale_fill_manual(values=c("Male-like" = "#6a3d9a", "Female-like" = "#b15928","Ambiguous" = "gray60"),
+                    breaks = c("Female-like","Male-like","Ambiguous")) +
+  plot_theme(theme = "classic", x.angle=45, font.size = 10, leg.pos = "none", leg.dir = "horizontal") +
+  labs(#title = "Sex classification per sample",
+    x = "", y = "Fraction of cells", fill = "Sex call")
+
+p1
+savefig(fig = p1, filename = file.path(dir.results, "figS3a"), width = 4, height = 3)
+write.table(p1@data, file.path(dir.results, "data/table_figS2e.tsv"), sep = "\t", row.names = T, quote = F)
+
+```
+
+
+
+
+# FigS3b
+
+```{r fig.width=4, fig.height=3}
+
+meta <- integrated@meta.data[, c("sex_score", "sex_call", "eryth_sum")]
+
+# ggplot(meta, aes(x = sex_score, color = sex_call, fill = sex_call)) +
+#   geom_density(alpha = 0.3, linewidth = 0.8) +
+#   geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.4) +
+#     scale_color_manual(values = c("Male-like" = "#6a3d9a", "Female-like" = "#b15928","Ambiguous" = "gray60")) +
+#     scale_fill_manual(values = c("Male-like" = "#6a3d9a", "Female-like" = "#b15928","Ambiguous" = "gray60")) +
+#   plot_theme(theme = "classic", font.size = 10) +
+#   labs(x = "Sex score (log2 XIST / Y-linked genes)",y = "Density",color = "Sex assignment",fill  = "Sex assignment")
+
+p2 <- ggplot(meta, aes(x = sex_score, fill = sex_call)) +
+  geom_histogram(aes(y = after_stat(density)),bins = 45,position = "identity",alpha = 1,color = "black",linewidth = 0.15) +
+  geom_vline(xintercept = 0,linetype = "dashed",linewidth = 0.4, color = "black") +
+  scale_fill_manual(values = c("Male-like" = "#6a3d9a", "Female-like" = "#b15928","Ambiguous" = "gray60")) +
+  plot_theme(theme = "classic",font.size = 10,leg.pos = c(0.2,0.85)) +
+  labs(x = "Sex score (log2 XIST / Y-linked genes)", y = "Density", fill = "Sex assignment")
+
+p2
+savefig(fig = p2, filename = file.path(dir.results, "figS3b"), width = 4, height = 3)
+write.table(p2@data, file.path(dir.results, "data/table_figS3b.tsv"), sep = "\t", row.names = T, quote = F)
+
+```
+
+
+
+```{r  fig.width=7, fig.height=3}
+
+savefig(fig = p1+p2+plot_layout(ncol = 2), filename = file.path(dir.results, "figS3ab"), width = 7, height = 3)
+
+```
+
+# FigS3c
+
+```{r fig.width=7, fig.height=4}
+
+p1 <- cellvio(integrated, group.by = "sample", features = c("XIST","UTY"), stack = T, title = "Sex-pre-QC",
+                 ncol = 1, cols = custom_colors$sample, font.size = 10, ttl.pos = "left")
+
+p2 <- cellvio(obj, group.by = "sample", features = c("XIST","UTY"), stack = T, title = "Sex-post-QC",
+                 ncol = 1, cols = custom_colors$sample, font.size = 10, ttl.pos = "left")
+
+p1+p2
+savefig(fig = p1+p2+plot_layout(ncol = 2), filename = file.path(dir.results, "figS3c"), width = 7, height = 4)
+
+```
+
+
+
+
+
+# FigS3d
+
+```{r fig.width=3, fig.height=3}
+
+eryth_threshold <- quantile(meta$eryth_sum, probs = 0.95)
+
+# Global erythroid burden
+
+p1 <- ggplot(meta, aes(x = eryth_sum)) +
+  geom_histogram(bins = 80, fill = "steelblue", color = "black", linewidth = 0.2) +
+  geom_vline(xintercept = eryth_threshold, linetype = "dashed", color = "red", linewidth = 0.3) +
+  plot_theme(theme = "classic", font.size = 10) +
+  labs(x = "Erythroid gene expression sum", y = "Number of cells")
+p1
+savefig(fig = p1, filename = file.path(dir.results, "figS3d"), width = 3, height = 3)
+write.table(p1@data, file.path(dir.results, "data/table_figS3d.tsv"), sep = "\t", row.names = T, quote = F)
+
+# Erythroid score stratified by sex classification
+# p <- cellvio(integrated, group.by = "sex_call", features = "eryth_sum", pt.size = 0.1, 
+#         cols = c("Female-like" = "#b15928","Male-like" = "#6a3d9a","Ambiguous" = "gray60"))
+
+```
+
+# FigS3e
+
+```{r fig.width=3, fig.height=3}
+
+# Sample level summary
+
+p2 <- ggplot(tbl_summary, aes(x = sample, y = median_eryth_sum)) +
+  geom_col(fill = "steelblue", color = "black", linewidth = 0.2, width = 0.6) +
+  plot_theme(theme = "classic", font.size = 10, x.angle = 45) +
+  labs(x = NULL, y = "Median erythroid gene score")
+p2
+savefig(fig = p2, filename = file.path(dir.results, "figS3e"), width = 3, height = 3)
+write.table(pA@data, file.path(dir.results, "data/table_figS3e.tsv"), sep = "\t", row.names = T, quote = F)
+
+```
+
+
+```{r fig.width=7, fig.height=3}
+
+p1+p2+plot_layout(ncol = 2)
+savefig(fig = p1+p2+plot_layout(ncol = 2), filename = file.path(dir.results, "figS3de"), width = 7, height = 3)
+
+```
+
+# Session Info
+
+```{r session_info}
+utils::capture.output(devtools::session_info())
+```
