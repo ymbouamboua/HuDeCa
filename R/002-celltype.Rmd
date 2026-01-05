@@ -159,48 +159,105 @@ ohbc <- cellpick(
 
 ```
 
+# Plot some canonical markers
+
+```{r fig.width=6.5, fig.height=10}
+
+canonical_markers <- c(
+  # Basal / progenitors
+  "TP63", "KRT5", "KRT19",        # RHBC
+  "COL17A1","TP63", "KRT5",              # OHBC
+  "TOP2A", "MKI67",               # CycBasal
+  
+  # Olfactory neuronal lineage
+  "HES6", "NNAT", "MYBL1",        # GBC
+  "NEUROD1", "NEUROG1", "TEX15",           # INP
+  "GNAL", "ADCY3", "GNG13",       # iOSN
+  
+  # Epithelial differentiation
+  "CDC20B", "CCNO",               # Deut
+  "FOXJ1","RSPH1", "DTHD1",             # MCC
+  "CFTR", "SERPINB7",             # MV
+  "IQCJ-SCHIP1", "SLCO1A2",       # SUS
+  
+  # Neural populations
+  "PAX6", "SOX2",                 # NP
+  "NEUROD6", "SLC24A2",           # GLUT
+  "GAD1", "GAD2",                 # GABA
+  "GNRH1", "PTPRN1",              # GnRH
+  "NOS1", "CHRM2",                # NOS1
+  
+  # Glial / support cells
+  "CDH19", "DCC",                 # NCC
+  "TOP2A", "BUB1",                # SCP
+  "COL19A1", "OLFML2A",           # SC
+  "SLC38A11", "TMOD1",             # OEC
+  "MITF", "HEY2",                 # Mel
+  
+  # Mesenchymal / stromal
+  "SOX2", "GSTP1",                # MSC
+  "KIF18B",                       # Mes0
+  "ITGA8", "PAX9",                # Mes1
+  "CREB5", "NRG1",                # Mes2
+  "COL13A1", "ANO5",              # Osteo
+  "ACAN", "COL9A2",               # Cartl
+  "PDGFRB", "ABCC9",              # Peri
+  
+  # Vascular / immune / muscle
+  "VWF", "FLT1",                  # EC
+  "PROX1", "STAB2",               # Lymph
+  "PAX7", "PDE1C",                # Sat
+  "MYPN", "ASB5",                 # SM
+  "CSF1R", "CD163"               # MG
+)
+
+celldot(obj, features = canonical_markers, group.by = "ann2", flip = T,  x.angle = 90, font.size = 10) 
+
+```
+
+
 ## Annotation level 2
 
 ```{r fig.width=10, fig.height=6}
 
 obj@meta.data$ann2 <- NULL
-obj@meta.data[obj@meta.data$seurat_clusters %in% c(28),"ann2"] <- "MSC" # PAX6, "SOX2
-obj@meta.data[obj@meta.data$seurat_clusters %in% c(32),"ann2"] <-"Deut" # "DEUP1","HES6","CCNO"
-obj@meta.data[obj@meta.data$seurat_clusters %in% c(7,41),"ann2"] <-"MCC" # "SNTN","DNAH5"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(28),"ann2"] <- "MSC" 
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(32),"ann2"] <-"Deut" # 
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(7,41),"ann2"] <-"MCC" # 
 obj@meta.data[obj@meta.data$seurat_clusters %in% c(10,35,36),"ann2"] <-"EC"
-obj@meta.data[obj@meta.data$seurat_clusters %in% c(34),"ann2"] <-"Lymph"
-obj@meta.data[obj@meta.data$seurat_clusters %in% c(19),"ann2"] <-"Peri" # PDGFRB
-obj@meta.data[obj@meta.data$seurat_clusters %in% c(22,40),"ann2"] <-"NP" # "GFAP",SOX2,HES5
-obj@meta.data[obj@meta.data$seurat_clusters %in% c(27),"ann2"] <-"GABA" #"SLC32A1","GAD1","GAD2"
-obj@meta.data[obj@meta.data$seurat_clusters %in% c(21,39),"ann2"] <-"GLUT" # "SLC17A6","SLC17A7","CRH"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(34),"ann2"] <-"Lymph" 
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(19),"ann2"] <-"Peri" 
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(22,40),"ann2"] <-"NP" 
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(27),"ann2"] <-"GABA" 
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(21,39),"ann2"] <-"GLUT" 
 obj@meta.data[obj@meta.data$seurat_clusters %in% c(38),"ann2"] <-"NOS1"
-obj@meta.data[obj@meta.data$seurat_clusters %in% c(11),"ann2"] <- "OEC" # "SOX10", "S100B", "VIM", "PLP1", "GFAP", "FABP7", "CD44","NELL2"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(11),"ann2"] <- "OEC" 
 obj@meta.data[obj@meta.data$subclusters %in% c("11_1"),"ann2"] <-"NCC" 
-obj@meta.data[obj@meta.data$Braun_2023_majority_voting %in% c("Head neural crest cells"),"ann2"] <- "NCC" #"FOXD3", "TFAP2A", "NGFR"
+obj@meta.data[obj@meta.data$Braun_2023_majority_voting %in% c("Head neural crest cells"),"ann2"] <- "NCC" 
 obj@meta.data[obj@meta.data$subclusters %in% c("11_4"),"ann2"] <-"SCP" 
-obj@meta.data[obj@meta.data$subclusters %in% c("11_2"),"ann2"] <-"SC" # "MPZ","MBP","ERBB3"
+obj@meta.data[obj@meta.data$subclusters %in% c("11_2"),"ann2"] <-"SC" 
 obj@meta.data[rownames(obj@meta.data) %in% c(mel),"ann2"] <-"Mel" # "MITF"
-obj@meta.data[obj@meta.data$Chenqu_Suo_2022_predicted_labels %in% c("MELANOCYTE"),"ann2"] <- "Mel" #"FOXD3", "TFAP2A", "NGFR"
-obj@meta.data[obj@meta.data$seurat_clusters %in% c(9,18,29),"ann2"] <-"Cartl" # "COL9A1", "COL11A1", "COL2A1", "ACAN", "WWP2"
-obj@meta.data[obj@meta.data$seurat_clusters %in% c(1,6,14),"ann2"] <-"Osteo" # "RUNX2"
-obj@meta.data[obj@meta.data$seurat_clusters %in% c(4,37),"ann2"] <-"Mes0" # prolif cells
+obj@meta.data[obj@meta.data$Chenqu_Suo_2022_predicted_labels %in% c("MELANOCYTE"),"ann2"] <- "Mel" 
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(9,18,29),"ann2"] <-"Cartl" 
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(1,6,14),"ann2"] <-"Osteo" 
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(4,37),"ann2"] <-"Mes0" 
 obj@meta.data[obj@meta.data$seurat_clusters %in% c(0,5,13),"ann2"] <- "Mes1"
 obj@meta.data[obj@meta.data$seurat_clusters %in% c(2,20,24,30,33),"ann2"] <- "Mes2"
 obj@meta.data[obj@meta.data$seurat_clusters %in% c(12),"ann2"] <-"SM"
 obj@meta.data[obj@meta.data$seurat_clusters %in% c(15),"ann2"] <- "Sat"
-obj@meta.data[obj@meta.data$seurat_clusters %in% c(42),"ann2"] <-"GBC" # "HES6","TCF12","TCF4","TCF3","HIF1A","ARNT"
-obj@meta.data[obj@meta.data$seurat_clusters %in% c(8,16,31),"ann2"] <-"RHBC" # TP63, SOX2
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(42),"ann2"] <-"GBC" 
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(8,16,31),"ann2"] <-"RHBC" 
 #obj@meta.data[obj@meta.data$seurat_clusters %in% c(16),"ann2"] <-"0HBC"
-obj@meta.data[rownames(obj@meta.data) %in% c(ohbc),"ann2"] <- "OHBC" # TP63, COL17A1
+obj@meta.data[rownames(obj@meta.data) %in% c(ohbc),"ann2"] <- "OHBC" 
 obj@meta.data[obj@meta.data$seurat_clusters %in% c(26),"ann2"] <-"CycBasal"
-obj@meta.data[obj@meta.data$seurat_clusters %in% c(3),"ann2"]  <- "MV" # "MUC5AC (PMCID: PMC8564600), "GLIS3
-obj@meta.data[obj@meta.data$seurat_clusters %in% c(17),"ann2"]  <- "SUS" # "IQCJ-SCHIP1", "TMEM132D", "LPGAT1"
-obj@meta.data[obj@meta.data$seurat_clusters %in% c(25),"ann2"] <-"MG" # "CX3CR1", "CD14","TMEM119","MS4A4A","CSF1R","ITGAM","P2RY12"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(3),"ann2"]  <- "MV" 
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(17),"ann2"]  <- "SUS" 
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(25),"ann2"] <-"MG" 
 obj@meta.data[obj@meta.data$seurat_clusters %in% c(23),"ann2"] <- "iOSN"
-obj@meta.data[obj@meta.data$subclusters %in% c("23_1"),"ann2"] <- "INP" # NEUROD1, NEUROG1, LHX2
-obj@meta.data[rownames(obj@meta.data) %in% c(gnrh1),"ann2"] <-"GnRH" # "ISL1","GNRH1","LINC01060","TAC3
+obj@meta.data[obj@meta.data$subclusters %in% c("23_1"),"ann2"] <- "INP" 
+obj@meta.data[rownames(obj@meta.data) %in% c(gnrh1),"ann2"] <-"GnRH" 
 
-cellmap(obj, group.by="ann2",  label = T, pt.size = 0.5, figplot = T, dark = T)
+cellmap(obj, group.by="ann2",  label = T, pt.size = 0.5)
 
 ```
 
