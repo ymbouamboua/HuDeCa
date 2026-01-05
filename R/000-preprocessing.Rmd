@@ -1,237 +1,133 @@
 ---
-title: "10x Hudeca Nasal: Preprocessing"
+title: "HUDECA — 000 PREPROCESSING"
 author: "Mbouamboua Yvon <yvon.mbouamboua@inserm.fr>"
 output:
-    html_document:
-       toc: true
-       toc_float: true
-       number_sections: true
-date: 'Last update: `r format(Sys.time())`'
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+date: '`r format(Sys.Date())`'
 ---
 
-# Setup
+## Goal
+Quality control and normalization
 
+## Setup
 ```{r setup, include=TRUE, message=FALSE, warning=FALSE}
-
-invisible(gc())
-knitr::opts_chunk$set(warning = FALSE, results = TRUE, message = FALSE, comment = "")
-dir.main <- "/Users/yvon.mbouamboua/Documents/projects/singlecell/hudeca_nasal"
-data.dir <- file.path(dir.main, "data/processed")
-dir.results <- file.path(dir.main, "results", "001_preprocessing")
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, comment = "")
+dir.main <- "/Users/yvon.mbouamboua/projects/singlecell/000-hudeca-nose"
+dir.data <- file.path(dir.main, "data/processed")
+dir.results <- file.path(dir.main, "output", "000-preprocessing")
 dir.create(dir.results, showWarnings = FALSE, recursive = TRUE)
+dir.create(file.path(dir.results, "plots"), showWarnings = FALSE)
 
-# Load R packages
-packages <- c("Seurat", "ggplot2", "dplyr", "tidyverse","grid",
-              "SingleCellExperiment", "scran", "scater", "pheatmap", "ComplexHeatmap", "ComplexUpset", "patchwork")
-
-# Function to check and install packages from CRAN or Bioconductor
+# Load packages
+packages <- c("Seurat", "ggplot2", "dplyr", "grid",
+"SingleCellExperiment", "scran", "scater",
+"pheatmap", "ComplexHeatmap", "ComplexUpset", "patchwork")
 install_and_load <- function(pkg) {
-  # Check if the package is from Bioconductor
-  if (!requireNamespace(pkg, quietly = TRUE)) {
-    if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
-    BiocManager::install(pkg, ask = FALSE)
-  }
-  # Load the package
-  suppressWarnings(suppressMessages(library(pkg, character.only = TRUE)))
+  if (!requireNamespace(pkg, quietly = TRUE)) install.packages(pkg)
+  library(pkg, character.only = TRUE)
 }
-
-# Apply function to each package
-suppressPackageStartupMessages({
-  invisible(lapply(packages, install_and_load))
-})
+invisible(lapply(packages, install_and_load))
 
 # Load helper functions
-# Define the directory where utility scripts are located
-utils_dir <- "~/Documents/projects/singlecell/utilities/"
-# Get a list of all R files in the directory
-r_files <- list.files(utils_dir, pattern = "\\.R$", full.names = TRUE)
-# Source each R file
-invisible(suppressWarnings(suppressMessages(lapply(r_files, source))))
-
+dir.utils <- "~/projects/apps/"
+files <- list.files(dir.utils, pattern = "\\.R$", full.names = TRUE)
+invisible(lapply(files, source))
 ```
+
 
 # Create seurat objects
 
-```{r warning=FALSE, message=FALSE, error=FALSE}
-
-joined <- data.frame()
-
-for (i in 1:length(file.name)) {
-  scmat <- Read10X(file.path(data.dir, file.name[[i]], filt.mtx.folder))
-  sobj <- CreateSeuratObject(counts = scmat, project = file.name[[i]])
-  saveRDS(sobj, file.path(main.dir, "/results/rdata/sample_data/", filename = paste0(file.name[[i]], ".rds")))
-    invisible(gc())
-  df <- sobj@meta.data %>%
-    group_by(orig.ident) %>%
-    summarize(n = n())
-  joined <- rbind(joined, df)
-}
-
-write.table(joined, file.path(main.dir, "results/rdata/sample_data/preQC_sample_summary.tsv"), sep = "\t", row.names = FALSE, quote = FALSE)
-
-```
-
-
-# Demultiplexing: add demuxafy souporcell+vireo+scds combined results
 
 ```{r}
 
-# Add demuxafy results
-seurat.list <- list()
+samples <- c("FN_S1256", "FN_S3478")
 
-for (i in 1:length(file.name)) {
-  file_path = list.files(path = file.path(main.dir, "results/rdata/sample_data"), pattern =  paste0(file.name[[i]], ".rds"), full.names = T, recursive = F)
-  sobj <- readRDS(file_path)
-  dmx <- read.delim(file.path(main.dir, "results/WS_demuxafy/", paste0(file.name[[i]]),"combine_majoritySinglet/combined_results_w_combined_assignments.tsv"))
-  dmx$barcode_seurat = dmx$Barcode
-  rownames(dmx) <- dmx$barcode_seurat
-  sobj <- AddMetaData(sobj, dmx)
-  sobj[['donor']] <- paste0(sobj@meta.data$MajoritySinglet_Individual_Assignment,"_", sobj@meta.data[,"orig.ident"])
-  print(unique(sobj$orig.ident))
-  seurat.list[[file.name[[i]]]] <- sobj
-  rm(sobj)
-}
-
-df <- seurat.list[["FN_S1256"]]@meta.data[,c("MajoritySinglet_Individual_Assignment", "Souporcell_Cluster", "Souporcell_Individual_Assignment","Vireo_Individual_Assignment")]
-
-df <- df %>% group_by(MajoritySinglet_Individual_Assignment,Souporcell_Cluster,Souporcell_Individual_Assignment,Vireo_Individual_Assignment) %>%
-  summarize(n = n()) %>% distinct(MajoritySinglet_Individual_Assignment, .keep_all = TRUE)
-
-# FN_S1256 Souporcell clusters correspondance
-# 0 = S2 = donor1
-# 1 = S6 = donor3
-# 2 = S1 = donor2
-# 3 = S5 = donor0
-
-Idents(seurat.list[["FN_S1256"]]) <-"MajoritySinglet_Individual_Assignment"
-seurat.list[["FN_S1256"]][["sample"]]=""
-seurat.list[["FN_S1256"]]@meta.data[seurat.list[["FN_S1256"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor2"),"sample"] <-"S1"
-seurat.list[["FN_S1256"]]@meta.data[seurat.list[["FN_S1256"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor1"),"sample"] <-"S2"
-seurat.list[["FN_S1256"]]@meta.data[seurat.list[["FN_S1256"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor0"),"sample"] <-"S5"
-seurat.list[["FN_S1256"]]@meta.data[seurat.list[["FN_S1256"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor3"),"sample"] <-"S6"
-seurat.list[["FN_S1256"]]@meta.data[seurat.list[["FN_S1256"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("doublet"),"sample"] <-"doublet"
-
-df <- seurat.list[["FN_S3478"]]@meta.data[,c("MajoritySinglet_Individual_Assignment", "Souporcell_Cluster", "Souporcell_Individual_Assignment","Vireo_Individual_Assignment")]
-
-df <- df %>% group_by(MajoritySinglet_Individual_Assignment,Souporcell_Cluster,Souporcell_Individual_Assignment,Vireo_Individual_Assignment) %>%
-   summarize(n = n()) %>% distinct(MajoritySinglet_Individual_Assignment, .keep_all = TRUE)
-
-# FN_S3478 Souporcell clusters correspondance
-# 0 = S3 = donor2
-# 1 = S7 = donor0
-# 2 = S8 = donor1
-# 3 = S4 = donor3
-
-Idents(seurat.list[["FN_S3478"]]) <-"MajoritySinglet_Individual_Assignment"
-seurat.list[["FN_S3478"]][["sample"]]=""
-seurat.list[["FN_S3478"]]@meta.data[seurat.list[["FN_S3478"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor2"),"sample"] <-"S3"
-seurat.list[["FN_S3478"]]@meta.data[seurat.list[["FN_S3478"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor3"),"sample"] <-"S4"
-seurat.list[["FN_S3478"]]@meta.data[seurat.list[["FN_S3478"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor0"),"sample"] <-"S7"
-seurat.list[["FN_S3478"]]@meta.data[seurat.list[["FN_S3478"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor1"),"sample"] <-"S8"
-seurat.list[["FN_S3478"]]@meta.data[seurat.list[["FN_S3478"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("doublet"),"sample"] <-"doublet"
-
-head(seurat.list[[1]]@meta.data)
-head(seurat.list[[2]]@meta.data)
-unique(seurat.list[[2]]@meta.data$MajoritySinglet_Individual_Assignment)
-
-
-for (i in 1:length(file.name)) {
-  
-Idents(seurat.list[[file.name[[i]]]]) <- "sample"
-stats <- cluster_stats(seurat.list[[file.name[[i]]]], group.by.var = "orig.ident")
-stats <- stats %>% dplyr::filter(row_number() <= n()-1)
-
-p <- ggplot(data = stats, mapping = aes(x = reorder(Cluster, -Number, decreasing = T), y = Number, fill = Cluster)) + 
-  geom_bar(stat = "identity", fill = "#5694C7") + 
-  theme_bw() +
-  geom_text(aes(label = Number), vjust = -0.5, size=5) +
-  ylim(0, max(stats$Number*1.1))+
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, colour = "black",size = 12),
-        axis.text.y = element_text(colour = "black", size = 12),
-        axis.title = element_text(size = 10),
-        plot.title = element_text(hjust = 0.5, vjust = 2, size = 12, face = "bold"),
-        legend.position = "none") + 
-  labs(title = paste0(file.name[[i]]), x = "Souporcell+Vireo+scds assignment",y = "Number of cells")
-
-  ggsave(path = file.path(main.dir, "results/plots/demuxafy_summary"), plot = p, 
-         filename = paste0(file.name[[i]], "_sample_demuxafy.pdf"), width = 4, height = 4)
-
-}
+objs <- load_seurat(
+  sample.dirs = samples,
+  parent.dir = file.path(dir.main, "data/processed"),
+  use.filtered = TRUE,
+  save.dir = file.path(dir.results, "data"),
+  merge = FALSE
+)
 
 ```
 
+# Add demuxafy
 
+```{r}
+
+# Minimal helper function
+process_demux_run <- function(obj, tsv_path, donor_map_path, bulk_fix_fun, barcode_col = "Barcode") {
+  df <- read.delim(tsv_path) %>%
+    bulk_fix_fun()
+  donor_mapping_tsv <- read.delim(donor_map_path)
+  obj <- add_bulk_donor_mapping_to_seurat(obj, df, donor_mapping_tsv, barcode_col = barcode_col)
+  Idents(obj) <- "BulkSample"
+  obj <- get_subset(obj, idents = c("doublet", "unassigned"), invert = TRUE)
+  return(obj)
+}
+
+
+fix_bulk <- function() {
+  function(df) {
+    df %>%
+      mutate(BulkSample = case_when((is.na(BulkSample) | BulkSample == "") &
+            MappingStatus == "doublet" ~ "doublet", 
+            is.na(BulkSample) | BulkSample == "" ~ "unassigned",TRUE ~ BulkSample))
+  }
+}
+
+FN_S1256 <- process_demux_run(
+  obj = objs$FN_S1256,
+  tsv_path = file.path(dir.main, "python/notebook/FN_S1256_bulk_mapping/combined_results_with_bulk_mapping.tsv"),
+  donor_map_path = file.path(dir.main, "python/notebook/FN_S1256_bulk_mapping/donor_to_bulk_mapping.tsv"),
+  bulk_fix_fun = fix_bulk()
+)
+
+FN_S3478 <- process_demux_run(
+  obj = objs$FN_S3478,
+  tsv_path = file.path(dir.main, "python/notebook/FN_S3478_bulk_mapping/combined_results_with_bulk_mapping.tsv"),
+  donor_map_path = file.path(dir.main, "python/notebook/FN_S1256_bulk_mapping/donor_to_bulk_mapping.tsv"),
+  bulk_fix_fun = fix_bulk()
+)
+
+raw_merged <- get_merge(obj.list = list(FN_S1256, FN_S3478))
+
+```
 
 # Quality control
 
-## Filter out doublets and unassignated cells
+```{r}
 
-```{r fig.width=6, fig.height=4, warning=FALSE, message=FALSE, error=FALSE}
+seurat_list <- split_seurat_objects(raw_merged, split.by = "BulkSample")
+invisible(gc())
 
-joined <- data.frame()
+obj <- run_qc(x = seurat_list, min_feat = 500, min_umi = 500, mad_n = 5, max_mito = 5,
+                      species = "human", sample_col = "BulkSample",
+                      merge_output = T, outdir = file.path(dir.results, "data"))
 
-for (i in 1:length(seurat.list)) {
-  Idents(seurat.list[[i]]) <- "sample"
-  seurat.list[[i]]@meta.data$sample <- 
-    seurat.list[[i]]@meta.data$sample %>% replace_na('doublet')
-  unique(seurat.list[[i]]$sample)
-  idents <- unique(seurat.list[[i]]$sample)
-  idents <- setdiff(idents, c("doublet"))
-  df <- seurat.list[[i]]@meta.data %>% 
-    group_by(sample) %>%
-    summarize(n = n())
-  joined <- rbind(joined, df)
-  seurat.list[[i]] <- subset(seurat.list[[i]], idents = idents, invert = FALSE)
-  print(unique(seurat.list[[i]]$sample))
-}
-
-sum(joined$n)
-write.table(joined, file.path(main.dir, "results/rdata/sample_data/preQC_sample_summary.tsv"), sep = "\t", row.names = FALSE, quote = FALSE)
+rm(seurat_list, merged)
+invisible(gc())
 
 ```
 
 
-## Filter out low read count cells
+# Save data
 
-```{r fig.width=10, fig.height=4, warning=FALSE, message=FALSE, error=FALSE}
+```{r}
 
-merged <- Reduce(merge, seurat.list)
-seurat.list <- list()
-seurat.list <- SplitObject(object = merged, split.by = "sample")
-#seurat.list <- object.list
-
-joined <- data.frame()
-
-for (i in 1:length(seurat.list)) {
-  seurat.list[[i]] <- PercentageFeatureSet(object = seurat.list[[i]], pattern = "^MT-", col.name = "percent.mito")
-  max.feature.cutoff <- median(seurat.list[[i]]$nFeature_RNA) + 5*mad(seurat.list[[i]]$nFeature_RNA)
-  max.umi.cutoff <- median(seurat.list[[i]]$nCount_RNA) + 5*mad(seurat.list[[i]]$nCount_RNA)
-  
-  seurat.list[[i]] <- subset(seurat.list[[i]], 
-                             nFeature_RNA > 1000 & 
-                               nFeature_RNA < max.feature.cutoff & 
-                               nCount_RNA < max.umi.cutoff &
-                               percent.mito < 5)
-  df <- seurat.list[[i]]@meta.data %>% group_by(sample) %>% summarize(n = n())
-  joined <- rbind(joined, df)
-}
-
-sum(joined$n)
-write.table(df, file.path(main.dir, "results/rdata/sample_data/postQC_sample_summary.tsv"), sep = "\t", row.names = FALSE, quote = FALSE)
-
-saveRDS(seurat.list, file.path(dir.results, "rdata/seurat.list.rds"))
-
+saveRDS(raw_merged, file.path(dir.results, "data/raw_merged.rds"))
+saveRDS(obj, file.path(dir.results, "data/filt_merged.rds"))
 
 ```
-
 
 
 # Session Info
 
 ```{r session_info}
-
 utils::capture.output(devtools::session_info())
-
 ```
-
 
