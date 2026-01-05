@@ -1,0 +1,234 @@
+---
+title: "HUDECA — Extended Data Figure 5: Transcriptional similarity and developmental dynamics of the fetal nasal region"
+author: "Mbouamboua Yvon <yvon.mbouamboua@inserm.fr>"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+date: '`r format(Sys.Date())`'
+---
+
+## Goal
+Final figures
+
+## Setup
+```{r setup, include=TRUE, message=FALSE, warning=FALSE}
+
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, comment = "")
+dir.main <- "/Users/yvon.mbouamboua/projects/singlecell/000-hudeca-nose"
+dir.results <- file.path(dir.main, "output", "010-figures/extended-figure5")
+dir.create(dir.results, showWarnings = FALSE, recursive = TRUE)
+dir.create(file.path(dir.results, "data"), showWarnings = FALSE)
+
+# Load packages
+packages <- c("Seurat", "ggplot2", "dplyr", "grid", "decoupleR",
+"SingleCellExperiment", "scran", "scater", "slingshot",
+"pheatmap", "ComplexHeatmap", "ComplexUpset", "patchwork")
+install_and_load <- function(pkg) {
+  if (!requireNamespace(pkg, quietly = TRUE)) install.packages(pkg)
+  library(pkg, character.only = TRUE)
+}
+invisible(lapply(packages, install_and_load))
+
+# Load helper functions
+utils_dir <- "~/projects/apps/"
+r_files <- list.files(utils_dir, pattern = "\\.R$", full.names = TRUE)
+invisible(lapply(r_files, source))
+
+# Load custom colors 
+custom_colors <-  readRDS(file.path(dir.main, "analysis/custom-colors-nature-safe.rds"))
+
+```
+
+
+# Load data
+
+```{r}
+
+obj <- readRDS(file.path(dir.main, "output/002-annotation/data/FN_harmony_clean.rds"))
+
+# # Level 2: fine-grained cell types
+ann2_levels <- c(
+"RHBC","OHBC","CycBasal","GBC","INP","iOSN","Deut","MCC","MV","SUS",  # Epithelium
+"NP","GLUT","GABA","GnRH","NOS1", # Neuronal
+"NCC","SCP","SC","OEC","Mel", # Neural Crest / Glia
+"MSC","Mes0","Mes1","Mes2","Osteo","Cartl", # Mesenchyme
+"Peri","EC","Lymph",  # Vascular
+"Sat","SM", # Muscle
+"MG" # Immune
+)
+
+# Ensure your Seurat object has ann2
+obj$ann2 <- factor(obj$ann2, levels = ann2_levels)
+
+# Level 1 mapping → lineage groups
+
+ann_map_level1 <- list(
+  "Olfactory Epithelium"   = c("OHBC","CycBasal","GBC","MV","SUS","INP","iOSN"),
+  "Respiratory Epithelium" = c("RHBC","Deut","MCC"),
+  "Neuronal"               = c("NP","GLUT","GABA","GnRH","NOS1"),
+  "NCC-Glia"               = c("NCC","SCP","SC","OEC","Mel"),
+  "Mesenchyme"             = c("MSC","Mes0","Mes1","Mes2","Cartl"),
+  "Osteoblast"             = c("Osteo"),
+  "Vascular"               = c("Peri","EC","Lymph"),
+  "Muscle"                 = c("Sat","SM"),
+  "Immune"                 = c("MG")
+)
+
+# Invert mapping (cell type → lineage)
+inv_level1 <- unlist(lapply(names(ann_map_level1), function(x) {
+  setNames(rep(x, length(ann_map_level1[[x]])), ann_map_level1[[x]])
+}))
+
+level1_vector <- inv_level1[as.character(obj$ann2)]
+names(level1_vector) <- colnames(obj)
+
+# # Keep only cells with valid mapping
+valid_cells1 <- names(level1_vector)[!is.na(level1_vector)]
+#obj <- subset(obj, cells = valid_cells1)
+
+obj <- AddMetaData(obj, metadata = level1_vector[valid_cells1], col.name = "ann1")
+obj$ann1 <- factor(obj$ann1, levels = names(ann_map_level1))
+
+ann_map_level0 <- list(
+  "Epithelium" = c("Olfactory Epithelium","Respiratory Epithelium"),
+  "Neuronal"   = c("Neuronal"),
+  "NCC-Glia" = c("NCC-Glia"),
+  "Mesenchyme" = c("Mesenchyme","Osteoblast"),
+  "Vascular"   = c("Vascular"),
+  "Muscle"     = c("Muscle"),
+  "Immune"     = c("Immune")
+)
+
+# inv_level0 maps Level1 → Level0
+inv_level0 <- unlist(lapply(names(ann_map_level0), function(x) {
+  setNames(rep(x, length(ann_map_level0[[x]])), ann_map_level0[[x]])
+}))
+
+# Create a vector for ALL cells
+level0_vector <- inv_level0[as.character(obj$ann1)]
+
+# Name the vector with Seurat cell names
+names(level0_vector) <- colnames(obj)
+
+# Add to Seurat metadata
+obj <- AddMetaData(obj, metadata = level0_vector, col.name = "ann0")
+
+# Convert to factor with only defined levels
+obj$ann0 <- factor(obj$ann0, levels = names(ann_map_level0))
+
+saveRDS(obj, file.path(dir.main, "output/002-annotation/data/FN_harmony_clean.rds"))
+# scCustomize::as.anndata(x = obj, file_path = file.path(dir.main, "output/002-annotation/data"),file_name = "hudeca_nose.h5ad")
+
+cellmap(obj, group.by = "ann0")
+cellmap(obj, group.by = "ann1") 
+cellmap(obj, group.by = "ann2")
+
+```
+
+
+## figS5a
+
+```{r fig.width=4, fig.height=3}
+
+p <- plot_cluster_correlation(obj, group.by = "ann0", assay = "RNA", fontsize = 10, 
+                         column_names_rot = 90, pdf_width = 4, pdf_height = 3, fig_name = "figS5a")
+
+write.table(p@matrix, file.path(dir.results, "data/table_figS5a.tsv"), sep = "\t", row.names = T, quote = F)
+
+```
+
+## figS5b
+
+```{r fig.width=5, fig.height=4}
+
+p <- plot_cluster_correlation(obj, group.by = "ann1", assay = "RNA", fontsize = 10, 
+                         column_names_rot = 90, pdf_width = 5, pdf_height = 4, fig_name = "figS5b")
+
+write.table(p@matrix, file.path(dir.results, "data/table_figS5b.tsv"), sep = "\t", row.names = T, quote = F)
+
+```
+
+## figS5c
+
+```{r fig.width=8, fig.height=7}
+
+p <- plot_cluster_correlation(obj, group.by = "ann2", assay = "RNA", fontsize = 10, 
+                         column_names_rot = 90, pdf_width = 8, pdf_height = 7, fig_name = "figS5c")
+
+write.table(p@matrix, file.path(dir.results, "data/table_figS5c.tsv"), sep = "\t", row.names = T, quote = F)
+
+```
+
+## figSd
+
+```{r fig.width=12, fig.height=10}
+
+# colors <- list(
+#   "ann1" = custom_colors$ann1,
+#   "ann2" = custom_colors$ann2,
+#   "ann3" = custom_colors$ann3,
+#   "ann4" = custom_colors$ann4
+# )
+p <- sankey_plot(obj, 
+                 selected_vars = c("ann0", "ann1","ann2"),
+                 show_percentages = TRUE, 
+                 custom_colors = custom_colors,
+                 show_counts = FALSE, 
+                 show_labels = TRUE,
+                 flow.alpha = 0.5,
+                 label.justify = "right", 
+                 label.nudge = 0.5, 
+                 text.size = 10,
+                 prevent_overlap = TRUE)
+
+print(p)
+savefig(fig = p, filename = file.path(dir.results, "figS5d.pdf"), width = 10, height = 10)
+
+```
+
+
+## figS5e
+
+```{r fig.width=5, fig.height=11}
+
+sub <- seurat_subset(obj, idents = c("Olfactory Epithelium"), group.by = "ann1", invert = T)
+
+res <- pb_prop_plot(input = sub, donor.col = "sample", stage.col = "group", cell.col  = "ann2", ncol = 4, show.p = F, leg.pos = "none", plot.type = "bar", stage.cols = custom_colors$group, donor.cols = custom_colors$donor, pt.size = 1.5, facet.by = "cell", font.size = 10, facet.bg = F, y.lab = "Proportion (%)")
+
+res$plot
+savefig(fig = res$plot, filename = file.path(dir.results, "figS5e"), width = 5, height = 8)
+write.table(res$plot@data, file.path(dir.results, "data/table_figS5e.tsv"), sep = "\t", row.names = F, quote = F)
+
+```
+
+
+
+## figS5f
+
+```{r }
+
+p <- cellmap(object = obj, group.by = "ann0", label = F, legend = T, pt.size = 0.2,
+              figplot = T, label.size = 3, cols = custom_colors$ann0, leg.ttl = "Annotation level 0")
+p
+savefig(fig = p, filename = file.path(dir.results, "figS5f"), width = 7, height = 5)
+
+```
+
+## figS5g
+
+```{r }
+
+p <- cellmap(object = obj, group.by = "ann1", label = F, legend = T, pt.size = 0.2,
+              figplot = T, label.size = 3, cols = custom_colors$ann1, leg.ttl = "Annotation level 1")
+p
+savefig(fig = p, filename = file.path(dir.results, "figS5g"), width = 7, height = 5)
+
+```
+
+# Session Info
+
+```{r session_info}
+utils::capture.output(devtools::session_info())
+```
