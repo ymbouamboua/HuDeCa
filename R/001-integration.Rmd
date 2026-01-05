@@ -1,193 +1,89 @@
 ---
-title: "10x Hudeca Nasal: Integration"
+title: "HUDECA — 001 INTEGRATION"
 author: "Mbouamboua Yvon <yvon.mbouamboua@inserm.fr>"
 output:
-    html_document:
-       toc: true
-       toc_float: true
-       number_sections: true
-date: 'Last update: `r format(Sys.time())`'
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+date: '`r format(Sys.Date())`'
 ---
 
-# Setup
+## Goal
+Batch correction and integration
 
+## Setup
 ```{r setup, include=TRUE, message=FALSE, warning=FALSE}
-
-invisible(gc())
-knitr::opts_chunk$set(warning = FALSE, results = TRUE, message = FALSE, comment = "")
-dir.main <- "/Users/yvon.mbouamboua/Documents/projects/singlecell/hudeca_nasal"
-dir.results <- file.path(dir.main, "results", "002_integration")
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, comment = "")
+dir.main <- "/Users/yvon.mbouamboua/projects/singlecell/000-hudeca-nose"
+dir.results <- file.path(dir.main, "output", "001-integration")
 dir.create(dir.results, showWarnings = FALSE, recursive = TRUE)
+dir.create(file.path(dir.results, "data"), showWarnings = FALSE)
+dir.create(file.path(dir.results, "plots"), showWarnings = FALSE)
 
-# Load R packages
-packages <- c("Seurat", "ggplot2", "dplyr", "tidyverse","grid",
-              "SingleCellExperiment", "scran", "scater", "pheatmap", "ComplexHeatmap", "ComplexUpset", "patchwork")
-
-# Function to check and install packages from CRAN or Bioconductor
+# Load packages
+packages <- c("Seurat", "ggplot2", "dplyr", "grid",
+"SingleCellExperiment", "scran", "scater",
+"pheatmap", "ComplexHeatmap", "ComplexUpset", "patchwork")
 install_and_load <- function(pkg) {
-  # Check if the package is from Bioconductor
-  if (!requireNamespace(pkg, quietly = TRUE)) {
-    if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
-    BiocManager::install(pkg, ask = FALSE)
-  }
-  # Load the package
-  suppressWarnings(suppressMessages(library(pkg, character.only = TRUE)))
+  if (!requireNamespace(pkg, quietly = TRUE)) install.packages(pkg)
+  library(pkg, character.only = TRUE)
 }
-
-# Apply function to each package
-suppressPackageStartupMessages({
-  invisible(lapply(packages, install_and_load))
-})
+invisible(lapply(packages, install_and_load))
 
 # Load helper functions
-# Define the directory where utility scripts are located
-utils_dir <- "~/Documents/projects/singlecell/utilities/"
-# Get a list of all R files in the directory
+utils_dir <- "~/projects/apps/"
 r_files <- list.files(utils_dir, pattern = "\\.R$", full.names = TRUE)
-# Source each R file
-invisible(suppressWarnings(suppressMessages(lapply(r_files, source))))
-
+invisible(lapply(r_files, source))
 ```
 
 # Load seurat processed samples
 
 ```{r}
 
-seurat.list <- readRDS(file.path(dir.main, "results/001_preprocessing/rdata/seurat.list.rds"))
+obj <- readRDS(file.path(dir.main, "output/000-preprocessing/data/filt_merged.rds"))
+invisible(gc())
 
 ```
 
 
-# Integration by Seurat rPCA
-
+# Harmony Integration
 
 ```{r fig.width=10, fig.height=6}
 
-seurat.list <- lapply(X = seurat.list, FUN = function(x) {
-    x <- NormalizeData(x)
-    x <- FindVariableFeatures(x, selection.method = "vst", nfeatures = 2000)
-})
-
-invisible(gc())
-features <- SelectIntegrationFeatures(object.list = seurat.list)
-seurat.list <- lapply(X = seurat.list, FUN = function(x) {
-    x <- ScaleData(x, features = features, verbose = FALSE)
-    x <- RunPCA(x, features = features, verbose = FALSE)
-})
-
-invisible(gc())
-anchors <- FindIntegrationAnchors(object.list = seurat.list, anchor.features = features, reduction = "rpca")
-obj <- IntegrateData(anchorset = anchors)
-rm(anchors)
-DefaultAssay(obj) <- "integrated"
-obj <- ScaleData(obj, verbose = FALSE)
-obj <- RunPCA(obj, npcs = 30, verbose = FALSE)
-ElbowPlot(obj)
-obj <- RunUMAP(obj, reduction = "pca", dims = 1:30)
-obj <- FindNeighbors(obj, reduction = "pca", dims = 1:30)
-obj <- FindClusters(obj, resolution = c(0.5,1,2))
-
-saveRDS(obj, file.path(dir.results, "rdata/fn_hudeca_integrated.rds"))
-
-Dim_Plot(object = obj, group.by = "seurat_clusters", label.show = T, legend = T, theme.bw = F,figure.plot = T, legend.ncol = 2)
-Dim_Plot(object = obj, group.by = "sample", label.show = F, legend = T, theme.bw = F,figure.plot = T)
-
-```
-
-
-# Post-processing
-
-## Find doublets
-
-```{r}
-
-obj <- readRDS(file.path(dir.results, "rdata/fn_hudeca_integrated.rds"))
-
-DefaultAssay(obj) <- "integrated"
-obj <- FindVariableFeatures(obj, assay = "RNA", nfeatures = 2000)
-features <- VariableFeatures(obj, assay = "RNA")
+obj[["RNA"]] <- split(obj[["RNA"]], f = obj$BulkSample)
+obj <- NormalizeData(obj)
+obj <- FindVariableFeatures(obj)
 obj <- ScaleData(obj)
-obj <- RunPCA(obj, npcs = 30, features = features)
-obj <- RunUMAP(obj, reduction = "pca", dims = 1:30, min.dist = 1)
-obj <- FindNeighbors(obj, reduction = "pca", dims = 1:30)
-#obj <- FindClusters(obj, resolution = c(1))
-DefaultAssay(obj) <- "RNA"
+obj <- RunPCA(obj, npcs = 50)
+obj <- FindNeighbors(obj, dims = 1:50, reduction = "pca")
+obj <- FindClusters(obj, resolution = 0.5, cluster.name = "unintegrated_clusters")
 
-sce <- scDblFinder::scDblFinder(as.SingleCellExperiment(obj))
-obj$scDblFinder.class <- sce$scDblFinder.class
-obj$scDblFinder.class <- unname(obj$scDblFinder.class == "doublet")
-obj@meta.data$scDblFinder.class <- as.character(obj@meta.data$scDblFinder.class)
-saveRDS(obj, file.path(dir.results, "rdata/fn_hudeca_integrated.rds"))
+obj <- IntegrateLayers(
+  object = obj, method = HarmonyIntegration,
+  orig.reduction = "pca", new.reduction = "harmony",
+  verbose = FALSE
+)
 
-Dim_Plot(object = obj, group.by = "seurat_clusters", label.show = T, legend = F)
-Dim_Plot(object = obj, group.by = "sample")
-Dim_Plot(object = obj, group.by = "scDblFinder.class", label.show = F, label.size = 5, legend = T, figure.plot = T)
+ndims <- get_pcs(obj)
+obj <- RunUMAP(obj, reduction = "pca", dims = 1:ndims, min.dist = 0.6, spread = 1)
+obj <- FindNeighbors(obj, reduction = "pca", dims = 1:ndims)
+obj <- FindClusters(obj, resolution = c(0.5,1.5))
+obj <- JoinLayers(obj)
+obj <- fix_seurat_matrix_names(obj)
 
-```
+obj <- subset(obj, cells = WhichCells(merged))
+obj <- obj[, WhichCells(merged)]
+obj <- NormalizeData(obj) %>% FindVariableFeatures() %>% ScaleData()
 
-
-## Filter cell quality
-
-### Check doublets
-
-```{r fig.width=5, fig.height=4}
-
-p <- Dim_Plot(object = obj, group.by = "scDblFinder.class", label.show = F, label.size = 5, legend = T, 
-         dark.theme = F, figure.plot = T, legend.position = "top", cell.countours = F, colors.use = c("gray50","darkred"))
-p
-save_plot(p, filename = file.path(dir.results, "figures/umap_scDblFinder"),  width = 5, height = 4, formats = c("pdf","png"))
+cellmap(object = obj, group.by = "seurat_clusters")
+cellmap(object = obj, group.by = "BulkSample")
+saveRDS(obj, file.path(dir.results, "data/FN_integrated.rds"))
 
 ```
-
-### Check cluster qualities
-
-```{r fig.width=10, fig.height=4, warning=F, message=F}
-
-p <- Stacked_VlnPlot(obj, features = c("nFeature_RNA", "nCount_RNA", "percent.mito"), group.by = "seurat_clusters", 
-                split.by = "scDblFinder.class", angle.x = 90, pt.size = 0, base.size = 10, legend.position = "right", 
-                plot.title = "scDblFinder.class", colors.use = c("gray50","darkred"), legend.key.size = 0.3)
-p
-save_plot(p, filename = file.path(dir.results, "figures/violin_seurat_scDblFinder"),  width = 11, height = 4, formats = c("pdf","png"))
-
-```
-
-### Remove doublets
-
-```{r fig.width=5, fig.height=4}
-
-Idents(obj) <- "scDblFinder.class"
-obj <- subset(obj, idents = "FALSE")
-Idents(obj) <- "seurat_clusters"
-obj <- subset(obj, idents = c(56,57,58), invert = T)
-
-Dim_Plot(object = obj, group.by = "scDblFinder.class", label.show = F, label.size = 5, legend = T, 
-         dark.theme = F, figure.plot = T, legend.position = "top", cell.countours = F, colors.use = c("gray50","darkred"))
-
-```
-
-### Check cluster qualities
-
-```{r fig.width=10, fig.height=4, warning=F, message=F}
-
-Stacked_VlnPlot(obj, features = c("nFeature_RNA", "nCount_RNA", "percent.mito"), group.by = "seurat_clusters", 
-                angle.x = 90, pt.size = 0.1, base.size = 10, legend.position = "none")
-
-```
-
-# Save post-processed data
-
-```{r}
-
-saveRDS(obj, file.path(dir.results, "rdata/FN_postprocessed.rds"))
-
-```
-
 
 # Session Info
 
 ```{r session_info}
-
 utils::capture.output(devtools::session_info())
-
 ```
-
