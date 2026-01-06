@@ -3683,133 +3683,233 @@ cellvio <- function(
 
 #'------------------------------------------------------------------------------
 #'------------------------------------------------------------------------------
-#' Residualized UMI Plot
+#' Residualized mean UMI plot per cell type
 #'
-#' Compute residualized mean UMIs per donor/cell type and plot per cell.
+#' Computes donor-level mean UMI counts per cell type, residualizes them
+#' against developmental stage (e.g. PCW) using linear regression, and
+#' visualizes the residualized values stratified by group (e.g. sex).
 #'
-#' @param data Seurat object or data.frame with cell metadata.
-#' @param cell.col Column name for cell type (default "cell_type").
-#' @param group.col Column name for grouping variable (e.g., sex; default "sex").
-#' @param stage.col Column name for numeric covariate to residualize by (e.g., PCW; default "PCW_num").
-#' @param value.col Name of residualized value column (default "resid_mean_UMI_adj").
-#' @param plot.type "bar" or "box" (default "box").
-#' @param theme Theme name.
-#' @param group.colors Named vector of colors for group.col.
-#' @param stage.colors Named vector of colors for stage.col (numeric/factor).
-#' @param jitter.size Size of points (default 1).
-#' @param alpha Point transparency (default 0.8).
-#' @param x.angle Angle for x-axis labels.
-#' @param font.size Base font size.
-#' @param leg.pos Legend position (default "top").
-#' @return ggplot object.
+#' Supports boxplots (default) or bar plots with standard error, overlays
+#' donor-level points colored by developmental stage, and optionally performs
+#' per–cell type statistical testing between groups.
+#'
+#' @param data A Seurat object or a data.frame containing cell-level metadata.
+#' @param cell.col Character. Column name specifying cell type annotations.
+#' @param group.col Character. Column name specifying grouping variable
+#'   (e.g. sex).
+#' @param stage.col Character. Column name specifying developmental stage
+#'   (numeric or extractable numeric, e.g. "PCW7").
+#' @param plot.type Character. Plot type: `"box"` (default) or `"bar"`.
+#' @param theme Character. Plot theme name (default `"classic"`).
+#' @param group.colors Named character vector of colors for `group.col`.
+#' @param stage.colors Named character vector of colors for `stage.col`.
+#' @param jitter.size Numeric. Size of jittered points (default 1).
+#' @param alpha Numeric. Transparency of jittered points (default 0.8).
+#' @param xlab Logical. Display x-axis label (default TRUE).
+#' @param ylab Logical. Display y-axis label (default TRUE).
+#' @param x.angle Numeric. Rotation angle of x-axis labels (default 45).
+#' @param font.size Numeric. Base font size (default 10).
+#' @param leg.pos Character or numeric. Legend position (default `"top"`).
+#' @param add_stats Logical. Whether to perform Wilcoxon rank-sum tests between
+#'   groups within each cell type and display significance labels (default TRUE).
+#' @param ... Additional parameters passed to downstream theme elements.
+#'
+#' @details
+#' Mean UMI counts are first computed per donor and cell type. These values
+#' are then residualized by linear regression against numeric developmental
+#' stage to remove stage-dependent effects. Residuals are shifted to be
+#' non-negative for visualization.
+#'
+#' Statistical testing is performed using two-sided Wilcoxon rank-sum tests
+#' between groups within each cell type. Significance is displayed as:
+#' `***` (P < 0.001), `**` (P < 0.01), `*` (P < 0.05), or `ns`.
+#'
+#' @return A ggplot object.
+#'
+#' @examples
+#' \dontrun{
+#' residual_plot(
+#'   data = obj,
+#'   cell.col = "ann2",
+#'   group.col = "sex",
+#'   stage.col = "stage",
+#'   plot.type = "box",
+#'   group.colors = custom_colors$sex,
+#'   stage.colors = custom_colors$PCW
+#' )
+#' }
+#'
 #' @export
-residual_plot <- function(data, cell.col, group.col, stage.col,
-                          plot.type = c("box", "bar"), theme = "classic",
-                          group.colors = NULL, stage.colors = NULL,
-                          jitter.size = 1, alpha = 0.8, xlab = TRUE, ylab = TRUE,
-                          x.angle = 45, font.size = 10, leg.pos = "top",...) {
+#' 
+residual_plot <- function(
+    data,
+    cell.col = "cell_type",
+    group.col = "sex",
+    stage.col = "PCW_num",
+    plot.type = c("box", "bar"),
+    theme = "classic",
+    group.colors = NULL,
+    stage.colors = NULL,
+    jitter.size = 1,
+    alpha = 0.8,
+    xlab = TRUE,
+    ylab = TRUE,
+    x.angle = 45,
+    font.size = 10,
+    leg.pos = "top",
+    add_stats = TRUE,
+    ...
+) {
   
   plot.type <- match.arg(plot.type)
   
-  # --- Extract metadata if Seurat ---
+  # -----------------------------
+  # Extract metadata
+  # -----------------------------
   if (inherits(data, "Seurat")) {
-    
     meta <- data@meta.data %>% as.data.frame()
-    
-    # Check columns exist
-    for (col in c(cell.col, group.col, stage.col)) {
-      if (!col %in% colnames(meta)) stop(paste0("Column '", col, "' not found in metadata."))
-    }
-    
-    # Keep original stage labels for coloring
-    meta$stage <- factor(meta[[stage.col]])
-    
-    # Create numeric version for regression only
-    meta$stage_num <- suppressWarnings(as.numeric(gsub("[^0-9.]", "", meta[[stage.col]])))
-    if (all(is.na(meta$stage_num))) {
-      stop("Stage column could not be converted to numeric for regression.")
-    }
-    
-    donor_celltype <- meta %>%
-      group_by(sample, .data[[cell.col]], .data[[group.col]],
-               stage, stage_num) %>%
-      summarise(mean_UMI = mean(nCount_RNA, na.rm = TRUE), .groups="drop")
-    
-    resid_df <- donor_celltype %>%
-      group_by(.data[[cell.col]]) %>%
-      do({
-        df <- .
-        if (nrow(df) < 2) { df$resid <- NA; return(df) }
-        df$resid <- resid(lm(mean_UMI ~ stage_num, data=df))
-        df
-      }) %>% ungroup() %>%
-      mutate(resid_mean_UMI_adj = resid - min(resid, na.rm = TRUE))
-    
-    # Attach residuals to full metadata
-    data_df <- meta %>%
-      left_join(resid_df %>%
-                  select(sample, .data[[cell.col]], resid_mean_UMI_adj),
-                by = c("sample", cell.col))
-    
-    # These are the columns used by ggplot
-    value.col <- "resid_mean_UMI_adj"
-    stage.col <- "stage"  # <- IMPORTANT FIX
   } else if (is.data.frame(data)) {
-    data_df <- data
-    if (!all(c(cell.col, group.col, stage.col) %in% colnames(data_df))) {
-      stop("Data frame must contain cell.col, group.col, and stage.col.")
-    }
-    value.col <- "resid_mean_UMI_adj"
-    if (!value.col %in% colnames(data_df)) stop("Residual value column not found in data.frame.")
+    meta <- data
   } else {
     stop("data must be Seurat object or data.frame")
   }
   
-  # Convert stage to factor for coloring in ggplot
+  # Check required columns
+  for (col in c(cell.col, group.col, stage.col)) {
+    if (!col %in% colnames(meta)) stop(paste0("Column '", col, "' not found."))
+  }
+  
+  # Convert stage to numeric for residuals
+  meta$stage_num <- suppressWarnings(as.numeric(gsub("[^0-9.]", "", meta[[stage.col]])))
+  if (all(is.na(meta$stage_num))) stop("Stage column could not be converted to numeric.")
+  
+  # -----------------------------
+  # Compute residualized mean UMIs per donor/cell type
+  # -----------------------------
+  donor_celltype <- meta %>%
+    group_by(sample, .data[[cell.col]], .data[[group.col]], stage = .data[[stage.col]], stage_num) %>%
+    summarise(mean_UMI = mean(nCount_RNA, na.rm = TRUE), .groups = "drop")
+  
+  resid_df <- donor_celltype %>%
+    group_by(.data[[cell.col]]) %>%
+    do({
+      df <- .
+      if (nrow(df) < 2) { 
+        df$resid <- 0
+      } else {
+        df$resid <- resid(lm(mean_UMI ~ stage_num, data = df))
+      }
+      df
+    }) %>%
+    ungroup() %>%
+    mutate(resid_mean_UMI_adj = resid - min(resid, na.rm = TRUE))
+  
+  # Merge residuals back into full metadata
+  data_df <- meta %>%
+    left_join(resid_df %>% select(sample, .data[[cell.col]], resid_mean_UMI_adj),
+              by = c("sample", cell.col))
+  
+  value.col <- "resid_mean_UMI_adj"
   data_df[[stage.col]] <- factor(data_df[[stage.col]])
   
-  # Prepare summary for bar plot
+  # -----------------------------
+  # Summary for bar plot / error bars
+  # -----------------------------
   if (plot.type == "bar") {
     bar_df <- data_df %>%
       group_by(.data[[cell.col]], .data[[group.col]]) %>%
-      summarise(mean_val = mean(.data[[value.col]], na.rm = TRUE),
-                se_val = sd(.data[[value.col]], na.rm = TRUE)/sqrt(n()),
-                .groups = "drop")
+      summarise(
+        mean_val = mean(.data[[value.col]], na.rm = TRUE),
+        se_val   = sd(.data[[value.col]], na.rm = TRUE)/sqrt(n()),
+        .groups = "drop"
+      )
   }
   
+  # -----------------------------
   # Base ggplot
+  # -----------------------------
   p <- ggplot(data_df, aes_string(x = cell.col, y = value.col, fill = group.col))
   
   if (plot.type == "box") {
-    p <- p + geom_boxplot(outlier.shape = NA, alpha = 1,
-                          position = position_dodge(width = 0.8), color = "black", linewidth = 0.2)
+    p <- p + geom_boxplot(
+      outlier.shape = NA, alpha = 1,
+      position = position_dodge(width = 0.8),
+      color = "black", linewidth = 0.2
+    )
   } else if (plot.type == "bar") {
-    p <- p + geom_bar(data = bar_df, aes_string(y = "mean_val"),
-                      stat = "identity", position = position_dodge(width = 0.8),
-                      color = "black", linewidth = 0.2)
+    p <- p + geom_bar(
+      data = bar_df, aes_string(y = "mean_val"),
+      stat = "identity", position = position_dodge(width = 0.8),
+      color = "black", linewidth = 0.2
+    ) +
+      geom_errorbar(
+        data = bar_df,
+        aes(ymin = mean_val - se_val, ymax = mean_val + se_val),
+        position = position_dodge(width = 0.8),
+        width = 0.2,
+        linewidth = 0.4
+      )
   }
   
-  p <- p + geom_jitter(aes_string(color = stage.col),
-                       size = jitter.size, alpha = alpha,
-                       position = position_jitterdodge(jitter.width = 0.15, dodge.width = 0.8))
+  # Stage points
+  p <- p + geom_jitter(
+    aes_string(color = stage.col),
+    size = jitter.size, alpha = alpha,
+    position = position_jitterdodge(jitter.width = 0.15, dodge.width = 0.8)
+  )
   
-  # Apply colors
+  # -----------------------------
+  # Wilcoxon stats per cell type
+  # -----------------------------
+  if (add_stats) {
+    stat_df <- data_df %>%
+      group_by(.data[[cell.col]]) %>%
+      summarise(
+        p_val = tryCatch(
+          wilcox.test(.data[[value.col]] ~ .data[[group.col]], exact = FALSE)$p.value,
+          error = function(e) NA
+        ),
+        max_val = max(.data[[value.col]], na.rm = TRUE), # max per cell type
+        .groups = "drop"
+      ) %>%
+      mutate(label = case_when(
+        p_val < 0.001 ~ "***",
+        p_val < 0.01  ~ "**",
+        p_val < 0.05  ~ "*",
+        TRUE          ~ "ns"
+      ))
+    
+    # Add stat labels above each box/bar
+    p <- p + geom_text(
+      data = stat_df,
+      aes_string(x = cell.col, y = "max_val * 1.05", label = "label"),
+      inherit.aes = FALSE,
+      position = position_dodge(width = 0.8),
+      size = 3
+    )
+  }
+  
+  # -----------------------------
+  # Colors and theme
+  # -----------------------------
   if (!is.null(group.colors)) p <- p + scale_fill_manual(values = group.colors)
   if (!is.null(stage.colors)) p <- p + scale_color_manual(values = stage.colors)
   
-  # Labels & theme
   p <- p +
-    labs(x = "", y = "Residualized mean UMIs", fill = group.col, color = stage.col) +
-    plot_theme(x.angle = x.angle, theme = theme, font.size = font.size,
-               leg.pos = leg.pos, xlab = xlab, ylab = ylab,...) +
+    labs(x = ifelse(xlab, "", NULL),
+         y = ifelse(ylab, "Residualized mean UMIs", NULL),
+         fill = group.col,
+         color = stage.col) +
+    theme_classic(base_size = font.size) +
     theme(
+      axis.text.x = element_text(angle = x.angle, hjust = 1),
+      legend.position = leg.pos,
       legend.background = element_rect(fill = "transparent", color = NA),
-      legend.box.background = element_rect(fill = "transparent", color = NA),
-      panel.background = element_rect(fill = "transparent",  color = NA)
+      legend.box.background = element_rect(fill = "transparent", color = NA)
     )
+  
   return(p)
 }
-
 
 #'------------------------------------------------------------------------------
 #'------------------------------------------------------------------------------
