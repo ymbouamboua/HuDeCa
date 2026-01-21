@@ -6375,39 +6375,69 @@ plot_cell_fractions <- function(seurat_obj,
 }
 
 
-#' Generate a Correlation Heatmap and Text Summary
+#' Cell–cell (cluster) expression correlation heatmap
 #'
-#' This function creates a correlation heatmap for cell clusters based on average expression values 
-#' and provides a text summary describing the results.
+#' Compute average gene expression per group (e.g. cluster, cell type)
+#' and visualize pairwise Pearson correlations using a ComplexHeatmap.
 #'
-#' @param object A Seurat object containing the single-cell expression data.
-#' @param group.by A metadata variable to group cells by. Default is "seurat_clusters".
-#' @param fontsize Font size for the heatmap text. Default is 8.
+#' @param object A \code{Seurat} object.
+#' @param group.by Metadata column used to define groups (default: \code{"seurat_clusters"}).
+#' @param assay Assay to use (default: \code{"RNA"}).
+#' @param slot Expression slot/layer to use (e.g. \code{"data"}, \code{"counts"}, \code{"scale.data"}).
+#' @param plot.title Optional title displayed above the heatmap.
+#' @param column_names_rot Rotation angle of column labels (default: 45).
+#' @param fontsize Base font size for row/column labels.
+#' @param pdf_width Width of saved figure (in inches).
+#' @param pdf_height Height of saved figure (in inches).
+#' @param fig_name File name (without extension) used when \code{save = TRUE}.
+#' @param save Logical; whether to save the heatmap to disk.
+#' @param dir.results Output directory for saved figures.
 #'
-#' @return A list containing the heatmap object and a text summary.
+#' @details
+#' For each group defined by \code{group.by}, the function computes
+#' mean gene expression across all cells in that group and calculates
+#' a Pearson correlation matrix between groups.
+#'
+#' Compatible with Seurat v4 and v5.
+#'
+#' @return
+#' A \code{ComplexHeatmap::Heatmap} object (invisibly).
+#'
 #' @examples
-#' # Example usage:
-#' # result <- Heatmap_Correlation(seurat_obj, group.by = "cell_type", fontsize = 10)
-#' # result$heatmap  # To visualize the heatmap
-#' # result$summary  # To view the text summary
+#' \dontrun{
+#' cellcorr(
+#'   object = seurat_obj,
+#'   group.by = "ann0",
+#'   plot.title = "Cluster correlation",
+#'   column_names_rot = 90,
+#'   save = TRUE,
+#'   fig_name = "cluster_corr",
+#'   dir.results = "figures"
+#' )
+#' }
+#'
+#' @import Seurat
+#' @import ComplexHeatmap
+#' @importFrom Matrix rowMeans
+#' @importFrom grid unit gpar
+#' @importFrom stats cor
 #'
 #' @export
-#' 
-plot_cluster_correlation <- function(object, 
-                                     group.by = "seurat_clusters",
-                                     assay = "RNA", 
-                                     slot = "data",  # Specify layer for Seurat v5
-                                     plot.title = NULL,
-                                     column_names_rot = 45,
-                                     fontsize = 10,
-                                     pdf_width = 5,
-                                     pdf_height = 6,
-                                     fig_name) {
-  
+cellcorr <- function(object, 
+                     group.by = "seurat_clusters",
+                     assay = "RNA", 
+                     slot = "data",
+                     plot.title = NULL,
+                     column_names_rot = 45,
+                     fontsize = 10,
+                     pdf_width = 5,
+                     pdf_height = 6,
+                     fig_name = NULL,
+                     save = FALSE,
+                     dir.results = ".") {
   require(Seurat)
   require(ComplexHeatmap)
   require(RColorBrewer)
-  
   
   # Set identity class based on the group.by column
   if (!group.by %in% colnames(object@meta.data)) {
@@ -6433,7 +6463,7 @@ plot_cluster_correlation <- function(object,
   for (i in seq_along(uniq)) {
     cluster_cells <- WhichCells(object, idents = uniq[i])
     
-    # ✅ Check if the cluster contains valid cells
+    # Check if the cluster contains valid cells
     valid_cells <- cluster_cells[cluster_cells %in% colnames(expr_data)]
     
     if (length(valid_cells) > 0) {
@@ -6477,13 +6507,18 @@ plot_cluster_correlation <- function(object,
   
   if (save) {
     save_heatmap(
-      ht = ComplexHeatmap::draw(ht, heatmap_legend_side = "right", annotation_legend_side = "right"),
+      ht = ComplexHeatmap::draw(
+        ht,
+        heatmap_legend_side = "right",
+        annotation_legend_side = "right"
+      ),
       filename = file.path(dir.results, fig_name),
       formats = c("pdf", "png", "tiff"),
       width = pdf_width,
       height = pdf_height
     )
   }
+  
   # Draw heatmap with title
   ComplexHeatmap::draw(ht, heatmap_legend_side = "right", annotation_legend_side = "right")
   grid::grid.text(
@@ -6491,8 +6526,6 @@ plot_cluster_correlation <- function(object,
     x = 0.5, y = unit(1, "npc") - unit(2, "mm"),
     gp = gpar(fontsize = fontsize + 2, fontface = "bold")
   )
-  
-  return(ht)
 }
 
 
