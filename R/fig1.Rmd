@@ -1,0 +1,195 @@
+---
+title: "HUDECA — Figure 1: Single-nucleus RNA sequencing of the developing human olfactory sensory epithelium from post-conceptional weeks (PCW) 7 to 12"
+author: "Mbouamboua Yvon <yvon.mbouamboua@inserm.fr>"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+date: '`r format(Sys.Date())`'
+---
+
+## Goal
+Final figures
+
+## Setup
+```{r setup, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+root <- '/Users/yvon.mbouamboua/projects/singlecell/000-hudeca'
+outdir <- file.path(root, 'out', '000-github/fig1')
+invisible(lapply(c(outdir, file.path(outdir, 'data'), file.path(outdir, 'plots')),
+                 dir.create, recursive = TRUE, showWarnings = FALSE))
+srcr <- file.path(root, 'src', 'R')
+invisible(lapply(list.files(srcr, full.names = TRUE), source))
+appdir <- Sys.getenv('APPS', '~/projects/apps')
+if (dir.exists(appdir)) {
+  pkgfile <- file.path(appdir, 'packages.R')
+  if (file.exists(pkgfile)) sys.source(pkgfile, envir = .GlobalEnv)
+  helper_files <- list.files(appdir, pattern = '\\.R$', full.names = TRUE)
+  helper_files <- helper_files[basename(helper_files) != 'packages.R']
+  invisible(lapply(helper_files, sys.source, envir = .GlobalEnv))
+}
+```
+
+
+# Load data
+
+```{r}
+
+obj <- readRDS(file.path(root, "out/002-annotation/data/FN_harmony_clean.rds"))
+custom_colors <-  readRDS(file.path(root, "analysis/custom-colors-nature-safe.rds"))
+
+```
+
+
+# Fig1b
+
+```{r fig.width=18, fig.height=3, warning=F, message=F}
+
+p <- cellmap(object = obj, group.by = "sample", split.by = "sample", label= F, figplot = F, plot.ttl = NULL,
+              legend = F, cols = custom_colors$sample, font.size = 20, pt.size = 0, ncol = 8, no.axes = T, theme = "dirty") 
+p
+savefig(fig = p, filename = file.path(outdir, "plots/fig1b.pdf"),  width = 7, height = 4)
+
+```
+
+
+# Fig1c
+
+```{r}
+
+p <- cellmap(object = obj, group.by = "sample", label = F, legend = T, item.size = 3, font.size = 10,
+              figplot = T, label.size = 3, cols = custom_colors$sample,  leg.ttl = "Samples")
+p
+savefig(fig = p, filename = file.path(outdir, "plots/fig1c"), width = 7, height = 5)
+
+```
+
+# Fig1d
+
+```{r }
+
+p <- cellmap(object = obj, group.by = c("ann2"), label = T, legend = T, font.size = 10,
+              figplot = T, label.size = 3, cols = custom_colors$ann2, label.face = "bold",
+             leg.ttl = "Cell types",leg.ncol = 2)
+p
+savefig(fig = p, filename = file.path(outdir, "plots/fig1d"),  width = 7, height = 5)
+
+```
+
+# Fig1e
+
+```{r fig.width=7, fig.height=4}
+
+res <- cellpct(
+  object = obj,
+  cell.col = "ann2",
+  group.col = "sex",
+  donor.col = "stage",
+  group.colors = custom_colors$sex, 
+  donor.colors = custom_colors$stage,theme.style = "classic",
+  leg.ncol = 2, show.pval = F, leg.pos = c(0.15,0.85)
+)
+
+res$plot
+
+write.table(res$source_data, file.path(outdir, "data/data_fig1e.tsv"), sep = "\t", row.names = F, quote = F)
+
+savefig(fig = res$plot, filename = file.path(outdir, "plots/fig1e"),  width = 7, height = 4)
+
+
+```
+
+
+# Fig1f
+
+```{r fig.width=9, fig.height=5.5}
+
+#colnames(obj@meta.data)[colnames(obj@meta.data) == "mito"] <- "percent_mito"
+
+p <- cellvio(obj, features = c("nFeature_RNA", "nCount_RNA", "percent_mito"), group.by = "ann2",
+  cols = custom_colors$ann2, ttl.pos = "left", font.size = 12,  stack = T, pt.size = 0, leg.pos = "none")
+
+p
+savefig(fig = p, filename = file.path(outdir, "plots/fig1f"), width = 9, height = 5.5)
+
+```
+
+
+# Fig1g
+
+```{r fig.width=4, fig.height=5}
+
+sub <- cellslice(obj, idents = c("Epithelium"), group.by = "ann0", preprocess = F)
+sub <- genefilter(sub)
+markers <- cellmarker(sub,  group.by = "ann2", only.pos = T, logfc.threshold = 0.25, min.pct = 0.25, test.use = "MAST")
+write.table(markers, file.path(outdir, "data/ann2_epith.tsv"), sep = "\t", row.names = F, quote = F)
+markers <- read.delim(file.path(outdir, "data/ann2_epith.tsv"))
+top <- markers %>% group_by(cluster) %>% top_n(n = 3, wt = avg_log2FC)
+
+p <- celldot(sub, features = rev(c(top$gene)), group.by = "ann2", 
+              plot.title = "Epithelium", flip = T,  x.angle = 45, font.size = 10) 
+p
+savefig(fig = p, filename = file.path(outdir, "plots/fig1g1"), width = 4, height = 5)
+
+```
+
+
+
+
+```{r fig.width=4, fig.height=5}
+
+sub <- cellslice(obj, idents = c("Neuronal","NCC-Glia"), group.by = "ann0", preprocess = F)
+sub <- filter_genes(sub)
+markers <- cellmarker(sub,  group.by = "ann2", only.pos = T, logfc.threshold = 0.25, min.pct = 0.25, test.use = "MAST")
+write.table(markers, file.path(outdir, "data/ann2_ncc_glia.tsv"), sep = "\t", row.names = F, quote = F)
+markers <- read.delim(file.path(outdir, "data/ann2_ncc_glia.tsv"))
+top <- markers %>% group_by(cluster) %>% top_n(n = 3, wt = avg_log2FC)
+p <- celldot(sub, features = rev(c(top$gene)), group.by = "ann2", 
+              plot.title = "Neural - Glial", flip = T,  x.angle = 45, font.size = 10) 
+p
+savefig(fig = p, filename = file.path(outdir, "plots/fig1g2"), width = 4, height = 5)
+
+```
+
+
+```{r fig.width=3.5, fig.height=4.5}
+
+sub <- cellslice(obj, idents = c("Mesenchyme"), group.by = "ann0", preprocess = F)
+sub <- filter_genes(sub)
+markers <- cellmarker(sub,  group.by = "ann2", only.pos = T, logfc.threshold = 0.25, min.pct = 0.25, test.use = "MAST")
+write.table(markers, file.path(outdir, "data/ann2_mes.tsv"), sep = "\t", row.names = F, quote = F)
+markers <- read.delim(file.path(outdir, "data/ann2_mes.tsv"))
+top <- markers %>% group_by(cluster) %>% top_n(n = 3, wt = avg_log2FC)
+p <- celldot(sub, features = rev(c(top$gene)), group.by = "ann2", 
+              plot.title = "Mesenchyme", flip = T,  x.angle = 45, font.size = 10) 
+p
+savefig(fig = p, filename = file.path(outdir, "plots/fig1g3"), width = 3.5, height = 4.5)
+
+```
+
+
+```{r fig.width=3.5, fig.height=4.5}
+
+sub <- cellslice(obj, idents = c("Vascular","Muscle","Immune"), group.by = "ann0", preprocess = F)
+sub <- filter_genes(sub)
+markers <- cellmarker(sub,  group.by = "ann2", only.pos = T, logfc.threshold = 0.25, min.pct = 0.25, test.use = "MAST")
+write.table(markers, file.path(outdir, "data/ann2_vasc_mus_imm.tsv"), sep = "\t", row.names = F, quote = F)
+markers <- read.delim(file.path(outdir, "data/ann2_vasc_mus_imm.tsv"))
+top <- markers %>% group_by(cluster) %>% top_n(n = 3, wt = avg_log2FC)
+p <- celldot(sub, features = rev(c(top$gene)), group.by = "ann2", 
+              plot.title = "Vascular - Muscle - Immune", flip = T,  x.angle = 45, font.size = 10) 
+p
+savefig(fig = p, filename = file.path(outdir, "plots/fig1g4"), width = 3.5, height = 4.5)
+
+```
+
+
+
+# Session Info
+
+```{r session_info}
+utils::capture.output(devtools::session_info())
+```
+
+
