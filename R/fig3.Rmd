@@ -1,0 +1,636 @@
+---
+title: "HUDECA — Figure 3: Lineage inference and developmental dynamics of the human fetal olfactory epithelium"
+author: "Mbouamboua Yvon <yvon.mbouamboua@inserm.fr>"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+date: '`r format(Sys.Date())`'
+---
+
+## Goal
+Final figures
+
+## Setup
+
+```{r setup, message=FALSE, warning=FALSE}
+
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+root <- '/Users/yvon.mbouamboua/projects/singlecell/000-hudeca'
+outdir <- file.path(root, 'out', '000-github/fig3')
+invisible(lapply(c(outdir, file.path(outdir, 'data'), file.path(outdir, 'plots')),
+                 dir.create, recursive = TRUE, showWarnings = FALSE))
+srcr <- file.path(root, 'src', 'R')
+invisible(lapply(list.files(srcr, full.names = TRUE), source))
+appdir <- Sys.getenv('APPS', '~/projects/apps')
+if (dir.exists(appdir)) {
+  pkgfile <- file.path(appdir, 'packages.R')
+  if (file.exists(pkgfile)) sys.source(pkgfile, envir = .GlobalEnv)
+  helper_files <- list.files(appdir, pattern = '\\.R$', full.names = TRUE)
+  helper_files <- helper_files[basename(helper_files) != 'packages.R']
+  invisible(lapply(helper_files, sys.source, envir = .GlobalEnv))
+}
+
+```
+
+
+
+# Load data
+
+```{r}
+
+obj <- readRDS(file.path(root, "out/002-annotation/data/FN_harmony_clean.rds"))
+custom_colors <-  readRDS(file.path(root, "analysis/custom-colors-nature-safe.rds"))
+
+```
+
+# Fig3a
+
+```{r}
+
+p <- cellmark(object = obj, cluster.name = c("GBC","INP","iOSN"), group.by = "ann2", item.size = 3, legend.text.size = 10,
+              custom.colors =  custom_colors$ann2, legend.pos = c(0.65, 0.20), pt.size = 0.001,mode = "multi",  show.cell.counts = F) 
+
+p
+savefig(fig = p, filename = file.path(outdir, "plots/fig3a"), width = 5, height = 3.5)
+
+```
+
+# Fig3b
+
+```{r fig.width=5, fig.height=3.5}
+
+sub <- cellslice(obj,  group.by = "ann2", use.harmony = T, harmony.group = "sample", min.dist = 1, spread = 0.5, idents = c("GBC","INP","iOSN"))
+
+p <- cellmap(object = sub, group.by = "ann2", label = F, legend = T, leg.ttl = "", pt.size = 2, figplot = T, cols = custom_colors$ann2, leg.pos = c(0.35,0.15),
+              theme = "classic", plot.ttl = "", n.cells = F, font.size = 10)
+p
+savefig(fig = p, filename = file.path(outdir, "plots/fig3b"), width = 5, height = 3.5)
+
+```
+
+## Fig3c
+
+```{r fig.width=7, fig.height=7}
+
+genes <-  c("HES6","NNAT","MYBL1", "BEST3","FOXN4", "TOP2A","MKI67", "ASCL1", # GBCs 
+           "SLC25A48", "ANKFN1",   "KCNH6",    "NKAIN1",   "ASIC1", "NEUROG1","NEUROD1", "THSD7B", # INP1
+           "TEX15","MARCHF1",  "FRMPD4",   "GALNTL6",  "SH3GL3",   "UNC5D","SLC8A1", "MARCHF1", # INP2
+           "GAP43","GNG8","GNG13","NHLH2","GNAL","ADCY3","ACSL6","CNG4","OLIG2","RTP1","PTPRR","EFHD1" , "SEMA3E","PTPRR" ,"MGAT4D")
+
+p <- cellvio(sub, features = genes, stack= T, ncol = 6, pt.size = 0, font.size = 10, group.by = "ann2", cols = custom_colors$ann2)
+p
+savefig(fig = p, filename = file.path(outdir, "plots/fig3c"), width = 7, height = 7)
+
+```
+
+## Fig3d
+
+
+```{r fig.width=2, fig.height=6, warning=F, message=F}
+
+p <- cellmap(object = sub, group.by = "stage", split.by = "stage", label= F, figplot = F, theme = "classic", 
+              legend = F, cols = custom_colors$stage, pt.size = 1.5, font.size = 14, ncol = 1, no.axes = T, facet.bg = F) 
+p
+savefig(fig = p, filename = file.path(outdir, "plots/fig3d"), width = 2, height = 6)
+
+```
+
+
+```{r fig.width=5, fig.height=3.5}
+
+sub <- cellslice(obj, group.by = "ann2", use.harmony = T, harmony.group = "sample", min.dist = 1, spread = 0.5,
+                 idents = c("OHBC", "CycBasal", "MV","SUS","GBC","INP","iOSN"), preprocess = T)
+
+cellmap(object = sub, group.by = "ann2", label = F, legend = T, leg.ncol = 1, item.size = 3,
+              figplot = T, cols = custom_colors$ann2,  theme = "bw", plot.ttl = "", n.cells = F, font.size = 8)
+
+```
+
+
+# Fig3e
+
+```{r fig.width=12, fig.height=2.5}
+
+genes <- c("COL27A1","TP63","DSC3", # Olf. HBC
+           "IQCJ-SCHIP1","SLCO1A2","SLCO1B1", # Sustentaculars
+           "CFTR","MUC5AC", # Microvillars
+            "TOP2A","MKI67", "HES6", "EZH2", "COL9A2","TCF12","TCF4","TCF3","HIF1A","ARNT", # GBCs
+           "NEUROD1","NEUROG1","THSD7B","NKAIN1","KCNH6","UNCX", # INP 
+           "TEX15","DPF3","GNG8","GAP43","OLIG2","DCX","SPOCK2","NHLH2","TUBB2", "FSTL5","CALB2","PCSK1N", # iOSNs
+           "PTPRR","GNGB1","ACSL6","GNG13","RTP1","MGAT4D" # mOSNs
+           )
+
+expression_heatmap(sub, features = genes, mode = "stage", group.by = "ann2",palette = "viridis",fontsize = 10,row.names.side = "left",
+    row.names.rot = 0, column.names.rot = 45,  column.names.side = "bottom", flip.heatmap = T, pdf.width = 8.5, pdf.height = 2,
+    output.pdf = file.path(outdir, "plots/Fig3e"))
+
+```
+
+# Fig3f
+
+
+
+```{r}
+
+# Filter unwanted genes
+sub <- genefilter(sub)
+
+# Run slingshot
+res <- run_slingshot(
+  object = sub,
+  cluster_col = "ann2",
+  pca_n = 50,
+  start_clust = "OHBC",
+  end_clusts = c("iOSN", "SUS", "MV"),
+  approx_points = 300,
+  shrink = FALSE
+)
+
+saveRDS(res, file.path(outdir, "data/OE_slingshot.rds"))
+
+```
+
+
+## Fig3g
+
+```{r fig.width=6, fig.height=5}
+
+#pal <- rev(colorRampPalette(RColorBrewer::brewer.pal(9, "YlGnBu"))(100))
+#lineage_colors <- c("Lineage1"="#F54927", "Lineage2"="#EEAB3F","Lineage3"= "#A6F527")
+lineage_colors <- c("Lineage1" = "#E41A1C", "Lineage2" = "navy", "Lineage3" = "#377EB8")
+
+p1 <- plot_lineages(obj = res$seurat, sds = res$sds, cluster_col = "ann2", lineage_colors = lineage_colors,
+  cluster_palette = custom_colors$OE, show_cluster_labels = T, show_lineage_labels = T, label.size = 6, pt.size = 2,
+  label.fontface = "bold.italic", legend.pos = "none", fig.plot = T,no.axes = T, linewidth = 1, base.size = 12)
+p1
+savefig(fig = eval(p1), filename = file.path(outdir, "plots/fig3f"), width = 6, height = 4)
+
+p2 <- plot_lineages(obj = res$seurat, sds = res$sds, cluster_col = "ann2", lineage_colors = lineage_colors,
+  cluster_palette = custom_colors$OE, show_cluster_labels = F, show_lineage_labels = F, show_lineages = F, 
+  label.size = 4, pt.size = 1.5, label.fontface = "bold.italic",color.by = "pseudotime",plot.title = "Neuronal lineage",
+  lineage.select = "Lineage1", fig.plot = F, no.axes = T, base.size = 14)
+p2
+savefig(fig = eval(p2), filename = file.path(outdir, "plots/fig3g1"), width = 6, height = 4)
+
+
+p3 <- plot_lineages(obj = res$seurat, sds = res$sds, cluster_col = "ann2", lineage_colors = lineage_colors,
+  cluster_palette = custom_colors$OE, show_cluster_labels = F, show_lineage_labels = F, show_lineages = F, 
+  label.size = 4, pt.size = 1.5, label.fontface = "bold.italic",color.by = "pseudotime",plot.title = "Microvillar lineage",lineage.select = "Lineage2", fig.plot = F, no.axes = T,base.size = 14)
+p3
+savefig(fig = eval(p3), filename = file.path(outdir, "plots/fig3g2"), width = 6, height = 4)
+
+
+p4 <- plot_lineages(obj = res$seurat, sds = res$sds, cluster_col = "ann2", lineage_colors = lineage_colors,
+  cluster_palette = custom_colors$OE, show_cluster_labels = F, show_lineage_labels = F, show_lineages = F, 
+  label.size = 4, pt.size = 1.5, label.fontface = "bold.italic",color.by = "pseudotime",plot.title = "Sustentacular lineage",lineage.select = "Lineage3", fig.plot = F, no.axes = T,base.size = 14)
+p4
+savefig(fig = eval(p4), filename = file.path(outdir, "plots/fig3g3"), width = 6, height = 4)
+
+p5 <- plot_lineages(obj = res$seurat, sds = res$sds, cluster_col = "ann2", lineage_colors = lineage_colors,
+  cluster_palette = custom_colors$OE, show_cluster_labels = F, show_lineage_labels = T, show_lineages = T, 
+  label.size = 4, pt.size = 2, label.fontface = "bold.italic",color.by = "pseudotime",plot.title = "",
+  lineage.select = NULL, fig.plot = F, no.axes = T, lineage_rename = c("Lineage1"="Neuronal",
+                                                                       "Lineage2"="Microvillar",
+                                                                       "Lineage3"="Sustentacular")
+  )
+p5
+savefig(fig = eval(p5), filename = file.path(outdir, "plots/fig3g4"), width = 6, height = 4)
+
+```
+
+
+## Fig3H
+
+```{r}
+
+# Prepare pseudotime data
+df <- as.data.frame(slingPseudotime(res$sds)) %>%
+  tibble::rownames_to_column("Cell") %>%
+  reshape2::melt(id.vars = "Cell", variable.name = "Lineage", value.name = "Pseudotime") %>%
+  dplyr::mutate(stage = as.numeric(gsub("PCW", "", sub$stage[Cell]))) %>%
+  dplyr::filter(!is.na(Pseudotime) & !is.na(stage)) %>%
+  dplyr::distinct(Cell, Lineage, .keep_all = TRUE) %>%   # <-- remove duplicated barcodes
+  dplyr::mutate(stage_label = factor(paste0("PCW", stage),
+                              levels = paste0("PCW", sort(unique(stage)))))
+
+# Fit GAM 
+gam_model <- mgcv::gam(Pseudotime ~ Lineage + s(stage, by = Lineage, k = 4), data = df)
+gam_pvals <- summary(gam_model)$s.table %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("Lineage") %>%
+  dplyr::mutate(Lineage = gsub("s\\(stage\\):Lineage", "", Lineage),
+         fdr = p.adjust(`p-value`, method = "fdr"))
+
+# Minimum FDR per stage 
+pw_pvals <- df %>%
+  dplyr::group_by(stage_label) %>%
+  dplyr::summarise(pval_min = min(gam_pvals$fdr[match(Lineage, gam_pvals$Lineage)]),
+            .groups = "drop") %>%
+  dplyr::mutate(pval_label = case_when(
+    pval_min < 0.001 ~ "***",
+    pval_min < 0.01  ~ "**",
+    pval_min < 0.05  ~ "*",
+    TRUE             ~ "ns"
+  ))
+
+# Peak density positions 
+peak_positions <- df %>%
+  dplyr::group_by(stage_label, Lineage) %>%
+  dplyr::summarise(dens = list(density(Pseudotime)), .groups = "drop") %>%
+  dplyr::rowwise() %>%
+  dplyr::mutate(y_max = max(dens$y),
+         x_peak = dens$x[which.max(dens$y)]) %>%
+  dplyr::group_by(stage_label) %>%
+  dplyr::slice_max(y_max, n = 1) %>%  # highest peak per stage
+  dplyr::ungroup() %>%
+  dplyr::mutate(y_pos = y_max * 1.08)
+
+# Rename lineages 
+lineage_map <- c("Lineage1"="Neuronal", "Lineage2"="Micovillar", "Lineage3"="Sustentacular")
+df$Lineage <- plyr::mapvalues(df$Lineage, names(lineage_map), lineage_map)
+peak_positions$Lineage <- plyr::mapvalues(peak_positions$Lineage, names(lineage_map), lineage_map)
+
+# Prepare labels for plotting 
+plot_labels <- peak_positions %>%
+  dplyr::left_join(pw_pvals, by = "stage_label")
+
+# Plot 
+p <- ggplot(df, aes(x = Pseudotime, color = Lineage)) +
+  geom_density(size = 1) +
+  facet_wrap(~stage_label, nrow = 1) +
+  scale_color_manual(values = c("Neuronal"="#E41A1C","Micovillar"="navy","Sustentacular"="#377EB8")) +
+  plot_theme(theme="classic", font.size=10, leg.pos="bottom", leg.dir="horizontal", facet.bg=FALSE) +
+  labs(x="Pseudotime", y="Density") +
+  geom_text(data=plot_labels, aes(x=x_peak, y=y_pos, label=pval_label),
+            inherit.aes=FALSE, size=3.5)
+
+p
+savefig(fig = p, filename = file.path(outdir, "plots/fig3h"), width = 6, height = 3)
+
+source_data <- df %>%
+  dplyr::left_join(gam_pvals %>% dplyr::select(Lineage, fdr), by = "Lineage") %>%
+  dplyr::left_join(peak_positions %>% dplyr::select(stage_label, Lineage, x_peak, y_pos), 
+            by = c("stage_label", "Lineage")) %>%
+  dplyr::left_join(pw_pvals %>% dplyr::select(stage_label, pval_label), by = "stage_label")
+
+source_data <- source_data %>% group_by(Cell) %>% slice(1) %>% ungroup()
+table(duplicated(source_data$Cell))
+write.table(source_data, file.path(outdir, "data/data_fig3h.tsv"), sep = "\t", quote = F, row.names = F)
+
+```
+
+
+
+
+```{r}
+
+# Put your genes in a vector
+or_genes <- c(
+"OR10A2","OR10A6","OR10AG1","OR10C1","OR10G3","OR10G4","OR10G7","OR10G8","OR10H1",
+"OR10H3","OR10H4","OR10H5","OR10K1","OR10K2","OR10R2","OR10Z1","OR11A1","OR11G2",
+"OR11H4","OR12D3","OR13A1","OR13C3","OR13C4","OR13G1","OR14A16","OR14C36","OR14I1",
+"OR14J1","OR1A1","OR1C1","OR1D2","OR1E1","OR1I1","OR1L6","OR1L8","OR1N2","OR1Q1",
+"OR1S1","OR2A1","OR2A12","OR2A14","OR2A25","OR2A42","OR2A5","OR2AG1","OR2AG2",
+"OR2AJ1","OR2AP1","OR2AT4","OR2B11","OR2B6","OR2F1","OR2F2","OR2G6","OR2H1","OR2I1P",
+"OR2J1","OR2J3","OR2L13","OR2L2","OR2L3","OR2L5","OR2M2","OR2M3","OR2M4","OR2T1",
+"OR2T11","OR2T12","OR2T2","OR2T33","OR2T35","OR2T6","OR2V1","OR2V2","OR3A2","OR3A3",
+"OR4D1","OR4D10","OR4D9","OR4E1","OR4E2","OR4F15","OR4F17","OR4F5","OR4K1","OR4K13",
+"OR4K14","OR4K17","OR4K2","OR4M1","OR4N2","OR4N5","OR51A4","OR51B5","OR51D1","OR51E1",
+"OR51E2","OR51I1","OR51I2","OR51L1","OR51M1","OR51V1","OR52A5","OR52B6","OR52E5",
+"OR52E8","OR52H1","OR52I2","OR52K1","OR52N1","OR52N2","OR56A1","OR56A3","OR56B4",
+"OR5A1","OR5A2","OR5AC2","OR5AN1","OR5AU1","OR5BS1P","OR5D3P","OR5H1","OR5H14",
+"OR5H15","OR5H6","OR5K1","OR5K3","OR5M1","OR5M10","OR5M3","OR5P2","OR5P3","OR5T1",
+"OR5V1","OR5W2","OR6A2","OR6B3","OR6C2","OR6C4","OR6C76","OR6F1","OR6J1","OR6K2",
+"OR6K3","OR6N1","OR6N2","OR6Y1","OR7A10","OR7C1","OR7D2","OR7D4","OR7E24","OR7G2",
+"OR8A1","OR8B12","OR8B2","OR8B8","OR8D4","OR8G5","OR8H1","OR8J1","OR8J3","OR8S1",
+"OR9A2","OR9G1","OR9G4","OR9I1","OR9K2","OR9Q1"
+)
+
+# Check duplicates
+duplicates <- or_genes[duplicated(or_genes)]
+duplicates
+
+```
+
+```{r}
+
+# Count duplicates per Cell + Lineage
+dup_counts <- df %>%
+  dplyr::group_by(Cell, Lineage) %>%
+  dplyr::summarise(n = n(), .groups = "drop") %>%
+  dplyr::filter(n > 1)
+
+dup_counts
+
+```
+
+
+```{r}
+
+cellmap(object = sub, group.by = "ann2", label = F, legend = T, pt.size = 1.5, figplot = F, cols = custom_colors$ann2)
+
+```
+
+## Fig3j
+
+```{r fig.width=5, fig.height=6}
+
+# Neuronal lineage
+
+# Identify temporal genes
+Idents(sub) <- "ann2"
+
+l1 <- identify_temporal_genes(seurat_obj = sub, sds_obj = res$sds,
+                              selected_celltypes = c("OHBC","CycBasal","GBC","INP","iOSN"),
+                              assay = "RNA", expr_slot = "data",n_var_genes = 500, min_cells_expressed = 10,
+                              min_pct_cells = 0.05, min_pt_range = 0.15, min_logFC = 0.5, gam_k = 6,
+                              top_n = 50, qval_cutoff = 0.05, verbose = T)
+
+saveRDS(l1, file.path(outdir, "data/lineage1.rds"))
+
+cols = c("OHBC"="#8B5FBF", "CycBasal" = "#5A5156", "GBC" = "#6DBE45","INP" = "#4463D9","iOSN" = "#C63F70")
+
+l1 <- readRDS(file.path(outdir, "data/lineage1.rds"))
+pt_vec <- l1$pt_used[, "Lineage1"] 
+gene_list <- l1$heatmap_matrices$Lineage1$top_genes
+
+# Vertical legends
+
+plot_heatmap_pseudotime(
+  heatmap_matrices = l1$heatmap_matrices,
+  seurat_obj = sub,
+  lineage_name = "Lineage1",
+  pseudotime_vec = pt_vec,
+  gene_list = gene_list,
+  celltype_colors = cols,
+  font_size = 10,
+  pdf_width = 4, 
+  pdf_height = 7,
+  legend_width_cm = 0.5,
+  cont_legend_cm = 1.8,
+  output_pdf = file.path(outdir),
+  plot_title = "Neuronal lineage",
+  legend_dir = "vertical",
+  ht_legend_side = "left",
+  ann_legend_side = "right",
+  annotation_col = "ann2",
+  merge_legends = TRUE,
+  center_legend_titles = TRUE,
+  center_cells_title = TRUE,
+  center_pt_title = FALSE,
+  cells_title_pos = "leftcenter-rot",
+  pt_title_pos = "leftcenter-rot",
+  hm_title_pos = "leftcenter-rot"
+)
+
+```
+```{r}
+
+l1 = readRDS(file.path(outdir, "data/lineage1.rds"))
+l1$heatmap_matrices
+
+```
+
+
+```{r fig.width=5, fig.height=6}
+
+# Microvilar lineage
+
+# Identify temporal genes
+Idents(sub) <- "ann2"
+
+l2 <- identify_temporal_genes(seurat_obj = sub, sds_obj = res$sds,
+                              selected_celltypes = c("OHBC","CycBasal","MV"),
+                              assay = "RNA", expr_slot = "data",n_var_genes = 500, min_cells_expressed = 10,
+                              min_pct_cells = 0.05, min_pt_range = 0.15, min_logFC = 0.5, gam_k = 6,
+                              top_n = 50, qval_cutoff = 0.05, verbose = T)
+
+saveRDS(l2, file.path(outdir, "data/lineage2.rds"))
+cols = c("OHBC"="#8B5FBF","CycBasal" = "#5A5156","MV" = "#B08F1E")
+l2 <- readRDS(file.path(outdir, "data/lineage2.rds"))
+pt_vec <- l2$pt_used[, "Lineage2"] 
+gene_list <- l2$heatmap_matrices$Lineage2$top_genes
+
+plot_heatmap_pseudotime(
+  heatmap_matrices = l2$heatmap_matrices,
+  seurat_obj = sub,
+  lineage_name = "Lineage2",
+  pseudotime_vec = pt_vec,
+  gene_list = gene_list,
+  celltype_colors = cols,
+  font_size = 10,
+  pdf_width = 4, 
+  pdf_height = 7,
+  legend_width_cm = 0.5,
+  cont_legend_cm = 1.8,
+  output_pdf = file.path(outdir),
+  plot_title = "Microvillar lineage",
+  legend_dir = "vertical",
+  ht_legend_side = "left",
+  ann_legend_side = "right",
+  annotation_col = "ann2",
+  merge_legends = TRUE,
+  center_legend_titles = TRUE,
+  center_cells_title = TRUE,
+  center_pt_title = FALSE,
+  cells_title_pos = "leftcenter-rot",
+  pt_title_pos = "leftcenter-rot",
+  hm_title_pos = "leftcenter-rot"
+)
+
+```
+
+
+```{r fig.width=5, fig.height=6}
+
+# Sustentacular lineage
+
+# Identify temporal genes
+Idents(sub) <- "ann2"
+
+l3 <- identify_temporal_genes(seurat_obj = sub, sds_obj = res$sds,
+                              selected_celltypes = c("OHBC","CycBasal","SUS"),
+                              assay = "RNA", expr_slot = "data",n_var_genes = 500, min_cells_expressed = 10,
+                              min_pct_cells = 0.05, min_pt_range = 0.15, min_logFC = 0.5, gam_k = 6,
+                              top_n = 50, qval_cutoff = 0.05, verbose = T)
+
+saveRDS(l3, file.path(outdir, "data/lineage3.rds"))
+
+cols <- c("OHBC"="#8B5FBF", "CycBasal" = "#5A5156", "SUS" = "#4E8D57")
+l3 <- readRDS(file.path(outdir, "data/lineage3.rds"))
+pt_vec <- l3$pt_used[, "Lineage3"] 
+gene_list <- l3$heatmap_matrices$Lineage3$top_genes
+
+plot_heatmap_pseudotime(
+  heatmap_matrices = l3$heatmap_matrices,
+  seurat_obj = sub,
+  lineage_name = "Lineage3",
+  pseudotime_vec = pt_vec,
+  gene_list = gene_list,
+  celltype_colors = cols,
+  font_size = 10,
+  pdf_width = 4, 
+  pdf_height = 7,
+  legend_width_cm = 0.5,
+  cont_legend_cm = 1.8,
+  output_pdf = file.path(outdir),
+  plot_title = "Sustacular lineage",
+  legend_dir = "vertical",
+  ht_legend_side = "left",
+  ann_legend_side = "right",
+  annotation_col = "ann2",
+  merge_legends = TRUE,
+  center_legend_titles = TRUE,
+  center_cells_title = TRUE,
+  center_pt_title = FALSE,
+  cells_title_pos = "leftcenter-rot",
+  pt_title_pos = "leftcenter-rot",
+  hm_title_pos = "leftcenter-rot"
+)
+
+```
+
+
+
+```{r}
+
+cellfeat <- function(
+  seurat_object,
+  features,
+  colors_use = NULL,
+  theme_color = "Reds",
+  use_viridis = FALSE,
+  viridis_option = "viridis",
+  reverse_colors = FALSE,
+  na_color = "lightgray",
+  na_cutoff = 1e-9,
+  order = FALSE,
+  pt.size = NULL,
+  base_size = 14,
+  legend.text.size = 10,
+  reduction = NULL,
+  raster = NULL,
+  raster.dpi = c(512,512),
+  split.by = NULL,
+  ncol = NULL,
+  layer = "data",
+  label = FALSE,
+  no_axes = FALSE,
+  merge_legend = FALSE,
+  merge.legend.pos = "right",
+  legend.orientation = c("vertical","horizontal"),
+  legend.title.pos = "left",
+  legend.title.angle = 90,
+  legend.width = grid::unit(0.8,"mm"),
+  legend.height = grid::unit(6,"mm"),
+  ...
+){
+  require(Seurat)
+  require(ggplot2)
+  require(patchwork)
+  require(RColorBrewer)
+
+  reduction <- reduction %||% DefaultDimReduc(seurat_object)
+  legend.orientation <- match.arg(legend.orientation)
+
+  ## ---------------- Colors ----------------
+  if (!is.null(colors_use)) {
+    if (length(colors_use) < 2) stop("colors_use must contain >=2 colors")
+  } else if (use_viridis) {
+    require(viridis)
+    colors_use <- viridis::viridis(9, option = viridis_option)
+  } else {
+    colors_use <- RColorBrewer::brewer.pal(9, theme_color)
+  }
+  if (reverse_colors) colors_use <- rev(colors_use)
+
+  ## ---------------- pt.size ----------------
+  if (is.null(pt.size)) {
+    n_cells <- ncol(seurat_object)
+    raster <- raster %||% (n_cells > 2e5)
+    pt.size <- if (raster) 1 else min(1583 / n_cells, 1)
+  }
+
+  ## ---------------- Fetch data ----------------
+  available_features <- c(rownames(seurat_object), colnames(seurat_object@meta.data))
+  feats <- intersect(features, available_features)
+  if (length(feats) == 0) stop("No features found")
+
+  vals <- FetchData(seurat_object, vars = feats, slot = layer)
+  global_max <- suppressWarnings(max(as.matrix(vals), na.rm = TRUE))
+  if (!is.finite(global_max) || global_max <= na_cutoff)
+    global_max <- na_cutoff + 1e-6
+
+  color_limits <- c(na_cutoff, global_max)
+  legend_name <- "Expression"
+
+  ## ---------------- Plot generation ----------------
+  plot_list <- list()
+
+  for (feat in feats) {
+    gglist <- FeaturePlot(
+      seurat_object,
+      features = feat,
+      split.by = split.by,
+      pt.size = pt.size,
+      order = order,
+      reduction = reduction,
+      raster = raster,
+      raster.dpi = raster.dpi,
+      label = label,
+      combine = FALSE,
+      ...
+    )
+
+    gglist <- lapply(gglist, function(p) {
+      p +
+        scale_color_gradientn(
+          colours = colors_use,
+          limits = color_limits,
+          na.value = na_color,
+          name = legend_name,
+          guide = guide_colorbar(
+            title = legend_name,
+            title.position = legend.title.pos,
+            title.theme = element_text(angle = legend.title.angle),
+            direction = legend.orientation,
+            barwidth = as.numeric(legend.width),
+            barheight = as.numeric(legend.height)
+          )
+        ) +
+        theme(
+          plot.title = element_text(size = base_size, face = "bold.italic", hjust = 0.5),
+          legend.text = element_text(size = legend.text.size),
+          legend.title = element_text(size = legend.text.size, face = "bold")
+        )
+    })
+
+    if (no_axes) gglist <- lapply(gglist, NoAxes)
+
+    plot_list <- c(plot_list, gglist)
+  }
+
+  ## ---------------- Combine ----------------
+  plt <- wrap_plots(plot_list, ncol = ncol)
+
+  if (merge_legend) {
+    plt <- plt +
+      plot_layout(guides = "collect") &
+      theme(legend.position = merge.legend.pos)
+  }
+
+  return(plt)
+}
+
+```
+
+
+
+
+# Session Info
+
+```{r session_info}
+utils::capture.output(devtools::session_info())
+```
