@@ -45,7 +45,7 @@ obj <- readRDS(file.path(root, "out/002-annotation/data/FN_harmony_clean.rds"))
 
 
 
-# FigS2e
+# FigS2a
 
 ```{r}
 
@@ -168,7 +168,7 @@ savefig(fig = p1+p2+plot_layout(ncol = 2), filename = file.path(outdir, "plots/f
 
 
 
-# FigS3d
+# FigS3d left panel
 
 ```{r fig.width=3, fig.height=3}
 
@@ -176,34 +176,30 @@ eryth_threshold <- quantile(meta$eryth_sum, probs = 0.95)
 
 # Global erythroid burden
 
-p1 <- ggplot(meta, aes(x = eryth_sum)) +
+p <- ggplot(meta, aes(x = eryth_sum)) +
   geom_histogram(bins = 80, fill = "steelblue", color = "black", linewidth = 0.2) +
   geom_vline(xintercept = eryth_threshold, linetype = "dashed", color = "red", linewidth = 0.3) +
   plot_theme(theme = "classic", font.size = 10) +
   labs(x = "Erythroid gene expression sum", y = "Number of cells")
-p1
-savefig(fig = p1, filename = file.path(outdir, "plots/figS3d"), width = 3, height = 3)
-write.table(p1@data, file.path(outdir, "data/data_source_figS3d.tsv"), sep = "\t", row.names = F, quote = F)
-
-# Erythroid score stratified by sex classification
-# p <- cellvio(integrated, group.by = "sex_call", features = "eryth_sum", pt.size = 0.1, 
-#         cols = c("Female-like" = "#b15928","Male-like" = "#6a3d9a","Ambiguous" = "gray60"))
+p
+savefig(fig = p, filename = file.path(outdir, "plots/figS3d_left"), width = 3, height = 3)
+write.table(p1@data, file.path(outdir, "data/data_source_figS3d_left.tsv"), sep = "\t", row.names = F, quote = F)
 
 ```
 
-# FigS3e
+# FigS3d right panel
 
 ```{r fig.width=3, fig.height=3}
 
 # Sample level summary
 
-p2 <- ggplot(tbl_summary, aes(x = sample, y = median_eryth_sum)) +
+p <- ggplot(tbl_summary, aes(x = sample, y = median_eryth_sum)) +
   geom_col(fill = "steelblue", color = "black", linewidth = 0.2, width = 0.6) +
   plot_theme(theme = "classic", font.size = 10, x.angle = 45) +
   labs(x = NULL, y = "Median erythroid gene score")
-p2
-savefig(fig = p2, filename = file.path(outdir, "plots/figS3e"), width = 3, height = 3)
-write.table(p2@data, file.path(outdir, "data/data_souirce_figS3e.tsv"), sep = "\t", row.names = F, quote = F)
+p
+savefig(fig = p, filename = file.path(outdir, "plots/figS3e"), width = 3, height = 3)
+write.table(p2@data, file.path(outdir, "data/data_souirce_figS3d_right.tsv"), sep = "\t", row.names = F, quote = F)
 
 ```
 
