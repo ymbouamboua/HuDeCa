@@ -17,7 +17,7 @@ Final figures
 
 knitr::opts_chunk$set(message = FALSE, warning = FALSE)
 root <- '/Users/yvon.mbouamboua/projects/singlecell/000-hudeca'
-outdir <- file.path(root, 'out', '008-figures/extended-figure2')
+outdir <- file.path(root, 'out', '000-github/figS2')
 invisible(lapply(c(outdir, file.path(outdir, 'data'), file.path(outdir, 'plots')),
                  dir.create, recursive = TRUE, showWarnings = FALSE))
 srcr <- file.path(root, 'src', 'R')
