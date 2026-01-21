@@ -131,7 +131,8 @@ plot_gene_set_expression <- function(object,
 
 ```{r fig.width=6, fig.height=4}
 
-sub <- subset_seurat(obj,  group.by = "ann2",  use.harmony = T,  harmony.group = "sample", min.dist = 1, spread = 0.5,  idents = c("INP","iOSN"))
+sub <- cellslice(obj,  group.by = "ann2",  use.harmony = T,  harmony.group = "sample", min.dist = 1, spread = 0.5,  idents = c("INP","iOSN"), preprocess = T)
+
 genes <- intersect(ORs$Gene_name, rownames(sub))
 genes <- c(genes, "VN1R1", "VN1R2")
 cellfeat(sub, features = c("VN1R1", "VN1R2"))
@@ -185,7 +186,7 @@ write.table(p$data, file = file.path(outdir, "data/data_fig6b.tsv"), sep = "\t",
 
 ```{r fig.width=6.5, fig.height=5}
 
-sub <- subset_seurat(obj,  group.by = "ann2",  use.harmony = T,  
+sub <- cellslice(obj,  group.by = "ann2",  use.harmony = T, preprocess = T,  
                      harmony.group = "sample", min.dist = 1, spread = 0.5,
                      idents = c("INP", "iOSN"))
 
@@ -219,46 +220,12 @@ write.table(res$binned.data, file = file.path(outdir, "data/data_fig6c.tsv"), se
 
 
 
-```{r fig.width=8, fig.height=4}
-
-
-# keep as factor with order
-sub@meta.data$stage <- factor(
-  sub@meta.data$stage,
-  levels = c("PCW12","PCW10","PCW8","PCW7")
-)
-#sub@meta.data$stage <- as.character(sub@meta.data$stage)
-
-res <- gsetplot(
-  obj = sub,
-  pval = F,show.sig = F,
-  geneset = ORs$Gene_name,
-  group.by  = "ann2",
-  stage = "stage",
-  mode = "faceted",facet.bg = FALSE,
-  x.lab = "Olfactory receptors",
-  module.score = TRUE,
-  module.name = "ORscore", theme = "classic",facet.ncol = 4,
-  pb.logical = FALSE, panel.fill = "white",
-  ann.counts = F, leg.pos = c(0.90, 0.95),
-  fill.cols = c("INP" = "#4463D9", "iOSN" = "#C63F70")
-)
-
-res$plot
-savefig(fig = res$plot, filename = file.path(outdir, "plots/fig6c_supp"), width = 8, height = 4)
-write.table(res$plot@data, file = file.path(outdir, "data/data_fig6c.tsv"), sep = "\t", row.names = F, quote = F)
-
-
-```
-
-
-
-
 ## Fig6d
 
 ```{r fig.width=5, fig.height=4}
 
-sub <- subset_seurat(obj,  group.by = "ann2",  use.harmony = T,  harmony.group = "sample", min.dist = 1, spread = 0.5, idents = c("INP", "iOSN"))
+sub <- cellslice(obj,  group.by = "ann2",  use.harmony = T,  harmony.group = "sample", min.dist = 1, spread = 0.5, idents = c("INP", "iOSN"), preprocess = T)
+
 genes <- intersect(OR_family$gene_name, rownames(sub))
 filt <- subset(sub, features = genes)
 filt <- filt[rowSums(GetAssayData(filt, assay = "RNA", slot = "counts") > 0) > 0, ]
@@ -320,7 +287,7 @@ savefig(fig = p, filename = file.path(outdir, "plots/fig6e"), width = 7, height 
 
 ```{r fig.width=2.2, fig.height=3}
 
-sub <- subset_seurat(obj,  group.by = "ann2",  use.harmony = T,  harmony.group = "sample", 
+sub <- cellslice(obj,  group.by = "ann2",  use.harmony = T,  harmony.group = "sample", preprocess = T,
                      min.dist = 1, spread = 0.5, idents = c("OHBC", "CycBasal", "MV", "SUS", "GBC", "INP", "iOSN"))
 
 genes <- intersect(ORs$Gene_name, rownames(sub))
@@ -376,12 +343,4 @@ write.table(p@data, file.path(outdir, "data/data_fig6j.tsv"), sep = "\t", row.na
 
 
 
-```{r fig.width=6, fig.height=7}
-# Top dominant genes faceted by stage
-p <- plot_dominance_score(res$df, mode = "top_genes", stage.col = "stage", ncol = 4, top.n = 20, font.size = 10, x.angle = 0)
-p
-savefig(fig = p, filename = file.path(outdir, "supp_fig6j"), width = 6, height = 7)
-write.table(p@data, file.path(outdir, "data/data_supp_fig6j.tsv"), sep = "\t", row.names = F, quote = F)
-
-```
 
