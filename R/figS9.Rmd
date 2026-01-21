@@ -1,5 +1,5 @@
 ---
-title: "HUDECA — Extended Data Figure 9"
+title: "HUDECA — Extended Data Figure 10. Analysis of the expression of the olfactory receptors (ORs) in individual INPs and OSNs"
 author: "Mbouamboua Yvon <yvon.mbouamboua@inserm.fr>"
 output:
   html_document:
