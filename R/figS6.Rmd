@@ -1,0 +1,143 @@
+---
+title: "HUDECA — Extended Data Figure 4: Cell cycle and age-related analysis"
+author: "Mbouamboua Yvon <yvon.mbouamboua@inserm.fr>"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+date: '`r format(Sys.Date())`'
+---
+
+## Goal
+Final figures
+
+## Setup
+```{r setup, include=TRUE, message=FALSE, warning=FALSE}
+
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+root <- '/Users/yvon.mbouamboua/projects/singlecell/000-hudeca'
+outdir <- file.path(root, 'out', '000-github/figS6')
+invisible(lapply(c(outdir, file.path(outdir, 'data'), file.path(outdir, 'plots')),
+                 dir.create, recursive = TRUE, showWarnings = FALSE))
+srcr <- file.path(root, 'src', 'R')
+invisible(lapply(list.files(srcr, full.names = TRUE), source))
+appdir <- Sys.getenv('APPS', '~/projects/apps')
+if (dir.exists(appdir)) {
+  pkgfile <- file.path(appdir, 'packages.R')
+  if (file.exists(pkgfile)) sys.source(pkgfile, envir = .GlobalEnv)
+  helper_files <- list.files(appdir, pattern = '\\.R$', full.names = TRUE)
+  helper_files <- helper_files[basename(helper_files) != 'packages.R']
+  invisible(lapply(helper_files, sys.source, envir = .GlobalEnv))
+}
+
+```
+
+
+# Load data
+
+```{r}
+
+obj <- readRDS(file.path(root, "out/002-annotation/data/FN_harmony_clean.rds"))
+custom_colors <-  readRDS(file.path(root, "analysis/custom-colors-nature-safe.rds"))
+
+```
+
+
+# figS6a
+
+```{r}
+
+# Load Seurat's built-in cell cycle gene lists
+s.genes <- Seurat::cc.genes$s.genes
+g2m.genes <- Seurat::cc.genes$g2m.genes
+postm.genes <- c("DCX", "TUBB3", "MAP2", "RBFOX3", "NEUROD1", "SOX9", "ELAVL4") 
+
+# Run Cell Cycle Scoring
+obj <- CellCycleScoring(object = obj, s.features = s.genes, g2m.features = g2m.genes, set.ident = TRUE)
+
+# Calculate PostM Score based on PostM gene expression
+obj$PostM.Score <- Seurat::FetchData(obj, vars = postm.genes) %>% rowMeans()
+
+# Define PostM threshold (75th percentile of PostM score)
+threshold <- quantile(obj$PostM.Score, 0.75)  
+
+# Identify Non-Cycling Cells (Low UMI & low cycle scores)
+nc_threshold <- 1000  # Adjust as needed
+obj$NonCycling <- obj$S.Score < 0.2 & obj$G2M.Score < 0.2 & obj$nFeature_RNA < nc_threshold
+
+# Update Cell Cycle Phases
+obj$Phase <- ifelse(obj$Phase == "G1" & obj$PostM.Score > threshold, "PostM", obj$Phase)
+obj$Phase <- ifelse(obj$NonCycling, "Non-Cycling", obj$Phase)  # Assign Non-Cycling
+
+# Convert to factor with correct order
+obj$Phase <- factor(obj$Phase, levels = c("G1", "S", "G2M", "PostM","Non-Cycling"))
+
+p <- cellmap(obj, group.by = "Phase", pt.size = 0.5, figplot = T, n.cells = F,
+         cols = custom_colors$phase, leg.ttl = "Phases", leg.pos = "bottom")
+p
+savefig(fig = p, filename = file.path(dir.results, "plots/figS6a"), width = 6, height = 5)
+
+```
+
+## figS6b
+
+```{r fig.width=2, fig.height=3}
+
+sub <- cellslice(obj,  group.by = "ann2",  use.harmony = T,  harmony.group = "sample", preprocess = T,
+                     min.dist = 1, spread = 0.5, idents = c("OHBC", "CycBasal", "MV", "SUS", "GBC", "INP", "iOSN"))
+
+p <- plot_cell_fractions(sub, x.col = "age", fill.col = "Phase",
+                         legend.title = "Phase", line.size = 1, text.size = 10,
+                         custom.colors = custom_colors$phase, x.title = "Age (PCW)", 
+                         plot.type = "line", legend.pos = "right")
+p
+savefig(fig = p, filename = file.path(dir.results, "plots/igS6b"), width = 3, height = 3)
+write.table(p@data, file.path(dir.results, "data/table_figS6b.tsv"), sep = "\t", row.names = T, quote = F)
+
+```
+
+
+
+
+## figS6c
+
+```{r fig.width=3, fig.height=5, warning=F}
+
+p <- cellprop(data = obj, x = "ann2", y = "Phase", plot.type = "bar", prop = T, stack = T,font.size = 10,
+                coord.flip = T, prop.multi = F, theme = "classic", legend = F, colors = custom_colors$phase, 
+                x.title = "", x.angle = 0, x.reverse = T, y.reverse = F)
+
+print(p)
+savefig(fig = p, filename = file.path(dir.results, "plots/figS6c"), width = 3, height = 5)
+
+```
+
+
+
+
+
+```{r fig.width=7, fig.height=7}
+
+Idents(obj) <- "ann2"
+p <- cellvio(obj, features = c("TOP2A","MKI67","CENPF","S.Score","G2M.Score","PostM.Score"), 
+                 stack = T, ncol = 1, group.by = "ann2", cols = custom_colors$ann2,
+                 font.size = 10, x.angle = 45, ttl.pos = "left")
+p
+savefig(fig = p, filename = file.path(dir.results, "plots/figS6e"), width = 7, height = 7.5)
+
+```
+
+
+
+# Session Info
+
+```{r session_info}
+utils::capture.output(devtools::session_info())
+```
+
+
+
+
+
+
