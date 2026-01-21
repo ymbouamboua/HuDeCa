@@ -1,0 +1,117 @@
+---
+title: "HUDECA — Extended Data Figure 5. Hierarchical annotation and compositional structure of olfactory epithelial cell populations"
+author: "Mbouamboua Yvon <yvon.mbouamboua@inserm.fr>"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+date: '`r format(Sys.Date())`'
+---
+
+## Goal
+Final figures
+
+## Setup
+```{r setup, include=TRUE, message=FALSE, warning=FALSE}
+
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+root <- '/Users/yvon.mbouamboua/projects/singlecell/000-hudeca'
+outdir <- file.path(root, 'out', '000-github/figS5')
+invisible(lapply(c(outdir, file.path(outdir, 'data'), file.path(outdir, 'plots')),
+                 dir.create, recursive = TRUE, showWarnings = FALSE))
+srcr <- file.path(root, 'src', 'R')
+invisible(lapply(list.files(srcr, full.names = TRUE), source))
+appdir <- Sys.getenv('APPS', '~/projects/apps')
+if (dir.exists(appdir)) {
+  pkgfile <- file.path(appdir, 'packages.R')
+  if (file.exists(pkgfile)) sys.source(pkgfile, envir = .GlobalEnv)
+  helper_files <- list.files(appdir, pattern = '\\.R$', full.names = TRUE)
+  helper_files <- helper_files[basename(helper_files) != 'packages.R']
+  invisible(lapply(helper_files, sys.source, envir = .GlobalEnv))
+}
+
+```
+
+
+# Load data
+
+```{r}
+
+obj <- readRDS(file.path(root, "out/002-annotation/data/FN_harmony_clean.rds"))
+custom_colors <-  readRDS(file.path(root, "analysis/custom-colors-nature-safe.rds"))
+
+```
+
+
+
+# figS5a
+
+```{r fig.width=12, fig.height=10}
+
+p <- sankey_plot(obj, 
+                 selected_vars = c("ann0", "ann1","ann2"),
+                 show_percentages = TRUE, 
+                 custom_colors = custom_colors,
+                 show_counts = FALSE, 
+                 show_labels = TRUE,
+                 flow.alpha = 0.5,
+                 label.justify = "right", 
+                 label.nudge = 0.5, 
+                 text.size = 10,
+                 prevent_overlap = TRUE)
+
+print(p)
+savefig(fig = p, filename = file.path(dir.results, "plots/figS5d.pdf"), width = 10, height = 10)
+
+```
+
+
+# FigS5b
+
+```{r fig.width=8, fig.height=3}
+
+sub <- cellslice(obj, group.by = "ann1", use.harmony = T, harmony.group = "sample",
+                     min.dist = 1, spread = 0.5, idents = c("OOlfactory epithelium"), invert = T)
+
+p <- cellpbulk(input = sub, donor.col = "sample", stage.col = "group",  cell.col  = "ann2", ncol = 7, show.p = F,
+                  plot.type = "bar",  font.size = 10, facet.ttl.size = 14,axis.ttl.size = 10,axis.txt.size = 10,
+                  x.angle = 45,facet.bg = FALSE,theme = "classic",mode = "light",leg.pos = "none", facet.title.size = 12,
+                  stage.cols = custom_colors$group,donor.cols = custom_colors$sample, pt.size = 1.5, facet.by = "cell")
+
+p$plot
+savefig(fig = p$plot, filename = file.path(outdir, "plots/figS5b"), width = 8, height = 3)
+write.table(p$source_data, file.path(outdir, "data/data_figS5b.tsv"), sep = "\t", row.names = F, quote = F)
+
+```
+
+
+## figS5c
+
+```{r }
+
+p <- cellmap(object = obj, group.by = "ann0", label = F, legend = T, pt.size = 0.2,
+              figplot = T, label.size = 3, cols = custom_colors$ann0, leg.ttl = "Annotation level 0")
+p
+savefig(fig = p, filename = file.path(dir.results, "plots/figS5c"), width = 7, height = 5)
+
+```
+
+
+## figS5d
+
+```{r }
+
+p <- cellmap(object = obj, group.by = "ann1", label = F, legend = T, pt.size = 0.2,
+              figplot = T, label.size = 3, cols = custom_colors$ann0, leg.ttl = "Annotation level 1")
+p
+savefig(fig = p, filename = file.path(dir.results, "plots/figS5d"), width = 7, height = 5)
+
+```
+
+
+# Session Info
+
+```{r session_info}
+utils::capture.output(devtools::session_info())
+```
