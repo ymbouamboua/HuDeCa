@@ -6,7 +6,7 @@
 The human nasal region arises from neural crest and placodal lineages, yet its early development remains poorly understood owing to limited fetal tissue access and structural complexity. Here we present an integrated single-nucleus and spatial transcriptomic atlas of the human fetal nasal region, generated from male and female fetuses between 7 and 12 post-conceptional weeks. Single-nucleus RNA sequencing resolved 32 distinct cell types, while integration with multiplexed error-robust fluorescence in situ hybridization (MERFISH) enabled spatial and temporal mapping of gene expression dynamics across the olfactory epithelium (OE) and adjacent tissues. We identify novel markers of olfactory sensory neuron differentiation and pathways governing epithelial patterning and OE morphogenesis. Notably, spatially resolved snRNA-seq profiles of 169 olfactory receptor genes reveal molecular support for the “one neuron-one receptor” principle already in the first trimester. Together, this work establishes the first molecular and spatial framework of early human olfactory development and provides a foundational resource for studies of sensory neurogenesis and congenital disorders.
 
 
-[1] "─ Session info ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────"
+[1] "─ Session info "
   [2] " setting  value"                                                                                                                   
   [3] " version  R version 4.5.1 (2025-06-13)"                                                                                            
   [4] " os       macOS Tahoe 26.2"                                                                                                        
@@ -21,7 +21,7 @@ The human nasal region arises from neural crest and placodal lineages, yet its e
  [13] " pandoc   3.6.3 @ /Users/yvon.mbouamboua/Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64/ (via rmarkdown)"
  [14] " quarto   1.8.25 @ /Users/yvon.mbouamboua/Applications/RStudio.app/Contents/Resources/app/quarto/bin/quarto"                       
  [15] ""                                                                                                                                  
- [16] "─ Packages ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────"
+ [16] "─ Packages "
  [17] " package              * version    date (UTC) lib source"                                                                          
  [18] " abind                  1.4-8      2024-09-12 [1] CRAN (R 4.5.0)"                                                                  
  [19] " annotate               1.88.0     2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)"                                                     
