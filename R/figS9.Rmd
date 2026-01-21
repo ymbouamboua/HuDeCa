@@ -1,0 +1,203 @@
+---
+title: "HUDECA — Extended Data Figure 9"
+author: "Mbouamboua Yvon <yvon.mbouamboua@inserm.fr>"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+date: '`r format(Sys.Date())`'
+---
+
+## Goal
+Final figures
+
+## Setup
+
+```{r setup, include=TRUE, message=FALSE, warning=FALSE}
+
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+root <- '/Users/yvon.mbouamboua/projects/singlecell/000-hudeca'
+outdir <- file.path(root, 'out', '000-github/figS9')
+invisible(lapply(c(outdir, file.path(outdir, 'data'), file.path(outdir, 'plots')),
+                 dir.create, recursive = TRUE, showWarnings = FALSE))
+srcr <- file.path(root, 'src', 'R')
+invisible(lapply(list.files(srcr, full.names = TRUE), source))
+appdir <- Sys.getenv('APPS', '~/projects/apps')
+if (dir.exists(appdir)) {
+  pkgfile <- file.path(appdir, 'packages.R')
+  if (file.exists(pkgfile)) sys.source(pkgfile, envir = .GlobalEnv)
+  helper_files <- list.files(appdir, pattern = '\\.R$', full.names = TRUE)
+  helper_files <- helper_files[basename(helper_files) != 'packages.R']
+  invisible(lapply(helper_files, sys.source, envir = .GlobalEnv))
+}
+
+```
+
+
+# Load data
+
+```{r}
+
+obj <- readRDS(file.path(root, "out/002-annotation/data/FN_harmony_clean.rds"))
+custom_colors <-  readRDS(file.path(root, "analysis/custom-colors-nature-safe.rds"))
+ORs <- readxl::read_excel(file.path(root, "data/proc/ORs/401_ORs.xlsx"))
+
+```
+
+
+```{r}
+
+library(Seurat)
+library(dplyr)
+library(tibble)
+
+sub <- subset_seurat(obj,  group.by = "ann2",  use.harmony = T, harmony.group = "sample", min.dist = 1, spread = 0.5,idents = c("INP", "iOSN"))
+
+# 1. Get counts
+counts_mat <- GetAssayData(sub, assay = "RNA", slot = "counts")
+
+# 2. Filter for genes of interest
+genes_available <- intersect(ORs$Gene_name, rownames(counts_mat))
+counts_mat <- counts_mat[genes_available, , drop = FALSE]
+
+# 3. Convert to data frame (cells as rows)
+df <- as.data.frame(t(as.matrix(counts_mat)))  # barcodes as rownames
+
+# 4. Add metadata
+meta_df <- sub@meta.data %>% dplyr::select(stage, ann2) %>% tibble::rownames_to_column("barcode")
+
+# 5. Combine counts and metadata
+final_df <- df %>% rownames_to_column("barcode") %>%
+  dplyr::left_join(meta_df, by = "barcode") %>%
+  dplyr::select(barcode, stage, ann2, everything())  # reorder columns
+
+# Check
+head(final_df)
+write.table(final_df, file.path(outdir, "data/ORs_per_cells.tsv"), sep = "\t", row.names = F, quote = F)
+write.table(final_df, file.path(outdir, "data/ORs_per_cells.csv"), sep = ";", row.names = F, quote = F)
+
+
+# assuming final_df has metadata in first 3 columns: barcode, stage, ann2
+or_cols <- colnames(final_df)[-(1:3)]  # all OR gene columns
+# keep rows where at least one OR gene > 0
+final_df_filtered <- final_df %>%
+  dplyr::filter(rowSums(dplyr::select(., all_of(or_cols)) > 0) > 0)
+
+```
+
+# Extended figure 9
+
+
+
+```{r fig.width=10, fig.height=10}
+
+# 1. Extract OR gene matrix
+or_genes <- grep("^OR", colnames(final_df), value = TRUE)
+
+mat_or <- as.matrix(final_df[, or_genes])
+storage.mode(mat_or) <- "numeric"
+rownames(mat_or) <- final_df$barcode
+
+mat_or[mat_or > 0] <- 1
+mat_or[is.na(mat_or)] <- 0
+
+# 2. Order OR genes by genomic position
+or_positions <- ORs[, c("Gene_name", "Chr", "Gene_start_(bp)")]
+colnames(or_positions) <- c("gene", "chr", "start")
+
+or_positions <- or_positions %>%
+  filter(gene %in% or_genes) %>%
+  arrange(chr, start)
+
+or_order <- or_positions$gene
+mat_or <- mat_or[, or_order, drop = FALSE]
+
+# 3. Order cells by dominant OR
+dominant_or <- apply(mat_or, 1, function(x) {
+  if (sum(x) == 0) NA else which.max(x)
+})
+
+cell_order <- order(dominant_or, na.last = TRUE)
+mat_or <- mat_or[cell_order, , drop = FALSE]
+final_df <- final_df[cell_order, , drop = FALSE]
+
+# Remove cells with no OR detected
+keep_rows <- rowSums(mat_or) > 0
+mat_or <- mat_or[keep_rows, , drop = FALSE]
+final_df <- final_df[keep_rows, , drop = FALSE]
+
+
+# 4. Row annotations (cell type + stage)
+row_ha <- rowAnnotation(
+  celltype = final_df$ann2,
+  stage    = final_df$stage,
+  col = list(
+    celltype = c("INP" = "#4463D9", "iOSN" = "#C63F70"),
+    stage = c("PCW7"  = "#56B4E9", "PCW8"  = "#0072B2","PCW10" = "#44AA99","PCW12" = "#D55E00")
+  ),
+ # gp = gpar(col = "black"),
+  show_annotation_name = TRUE,
+  annotation_name_side = "top"
+)
+
+# 5. COLUMN annotation — chromosomes (FIXED)
+# Chromosome vector aligned to matrix columns
+chr_vec <- or_positions$chr
+names(chr_vec) <- or_positions$gene
+chr_vec <- chr_vec[colnames(mat_or)]
+
+# Convert to factor (preserves order)
+chr_factor <- factor(chr_vec, levels = unique(chr_vec))
+
+# Chromosome colors (stable & publication-ready)
+chr_colors <- structure(
+  rand_color(length(levels(chr_factor)), luminosity = "bright"),
+  names = levels(chr_factor)
+)
+
+top_ha <- HeatmapAnnotation(
+  chromosome = anno_block(
+    gp = gpar(fill = chr_colors),
+    labels = levels(chr_factor),
+    labels_gp = gpar(fontsize = 9),
+    labels_rot = 90
+  ),
+  annotation_name_side = "left"
+)
+
+# 6. Heatmap
+ht <- Heatmap(
+  mat_or,
+  name = "OR expression",
+  col = colorRamp2(c(0, 1), c("white", "black")),
+  show_row_names = FALSE,
+  show_column_names = FALSE,
+  cluster_rows = FALSE,
+  cluster_columns = FALSE,
+  column_split = chr_factor,   
+  left_annotation = row_ha,
+  top_annotation  = top_ha,
+  column_title = "Olfactory receptor genes ordered by genomic position",
+  #rect_gp = gpar(col = "black", lwd = 0.5),
+  heatmap_legend_param = list(
+    at = c(0, 1),
+    #border = "black",
+    labels = c("Not detected", "Detected")
+  )
+)
+
+
+# 7. Draw
+
+save_heatmap(
+  ht = draw(ht,heatmap_legend_side = "right",annotation_legend_side = "right"),
+  filename = "FigS9", formats = c("pdf", "png", "tiff"), width = 8,
+  height = 10, dpi = 600)
+
+
+```
+
+
+
+
