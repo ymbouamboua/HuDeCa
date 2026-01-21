@@ -1,0 +1,197 @@
+---
+title: "HUDECA — Extended Data Figure 3: Sex assignment quality control Detection of maternal erythroid contamination"
+author: "Mbouamboua Yvon <yvon.mbouamboua@inserm.fr>"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+date: '`r format(Sys.Date())`'
+---
+
+## Goal
+Final figures
+
+## Setup
+```{r setup, include=TRUE, message=FALSE, warning=FALSE}
+
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+root <- '/Users/yvon.mbouamboua/projects/singlecell/000-hudeca'
+outdir <- file.path(root, 'out', '000-github/figS4')
+invisible(lapply(c(outdir, file.path(outdir, 'data'), file.path(outdir, 'plots')),
+                 dir.create, recursive = TRUE, showWarnings = FALSE))
+srcr <- file.path(root, 'src', 'R')
+invisible(lapply(list.files(srcr, full.names = TRUE), source))
+appdir <- Sys.getenv('APPS', '~/projects/apps')
+if (dir.exists(appdir)) {
+  pkgfile <- file.path(appdir, 'packages.R')
+  if (file.exists(pkgfile)) sys.source(pkgfile, envir = .GlobalEnv)
+  helper_files <- list.files(appdir, pattern = '\\.R$', full.names = TRUE)
+  helper_files <- helper_files[basename(helper_files) != 'packages.R']
+  invisible(lapply(helper_files, sys.source, envir = .GlobalEnv))
+}
+
+```
+
+
+# Load data
+
+```{r}
+
+integrated <- readRDS(file.path(root, "out/002-annotation/data/FN_harmony.rds"))
+obj <- readRDS(file.path(root, "out/002-annotation/data/FN_harmony_clean.rds"))
+
+```
+
+
+# FigS4a top panel
+
+```{r fig.width=8, fig.height=3.5}
+
+obj <- filter_genes(obj, normalize = T, scale.data = T)
+markers <- cellmarker(obj,  group.by = "ann0", only.pos = T, logfc.threshold = 0.25, min.pct = 0.25, test.use = "MAST")
+write.table(markers, file.path(outdir, "data/ann0_markers.tsv"), sep = "\t", row.names = F, quote = F)
+markers <- read.delim(file.path(outdir, "data/ann0_markers.tsv"))
+top <- markers %>% group_by(cluster) %>% top_n(n = 5, wt = avg_log2FC)
+p <- celldot(obj, features = top$gene, group.by = "ann0", 
+              plot.title = "Annotation level0", flip = F,  x.angle = 90, font.size = 10) 
+p
+savefig(fig = p, filename = file.path(outdir, "plots/figS4_top"), width = 8, height = 3.5)
+
+```
+
+
+# FigS4a bottom panel
+
+```{r fig.width=10, fig.height=3.5}
+
+obj <- filter_genes(obj, normalize = T, scale.data = T)
+markers <- cellmarker(obj,  group.by = "ann1", only.pos = T, logfc.threshold = 0.25, min.pct = 0.25, test.use = "MAST")
+write.table(markers, file.path(outdir, "data/ann1_markers.tsv"), sep = "\t", row.names = F, quote = F)
+markers <- read.delim(file.path(outdir, "data/ann1_markers.tsv"))
+top <- markers %>% group_by(cluster) %>% top_n(n = 5, wt = avg_log2FC)
+p <- celldot(obj, features = top$gene, group.by = "ann1", 
+              plot.title = "Annotation level1", flip = F,  x.angle = 90, font.size = 10) 
+p
+savefig(fig = p, filename = file.path(outdir, "plots/figS4_bottom"), width = 10, height = 3.5)
+
+```
+
+
+# FigS4b
+
+```{r fig.width=6.5, fig.height=10}
+
+canonical_markers <- c(
+  # Basal / progenitors
+  "TP63", "KRT5", "KRT19",        # RHBC
+  "COL17A1","TP63", "KRT5",              # OHBC
+  "TOP2A", "MKI67",               # CycBasal
+  
+  # Olfactory neuronal lineage
+  "HES6", "NNAT", "MYBL1",        # GBC
+  "NEUROD1", "NEUROG1", "TEX15",           # INP
+  "GNAL", "ADCY3", "GNG13",       # iOSN
+  
+  # Epithelial differentiation
+  "CDC20B", "CCNO",               # Deut
+  "FOXJ1","RSPH1", "DTHD1",             # MCC
+  "CFTR", "SERPINB7",             # MV
+  "IQCJ-SCHIP1", "SLCO1A2",       # SUS
+  
+  # Neural populations
+  "PAX6", "SOX2",                 # NP
+  "NEUROD6", "SLC24A2",           # GLUT
+  "GAD1", "GAD2",                 # GABA
+  "GNRH1", "PTPRN1",              # GnRH
+  "NOS1", "CHRM2",                # NOS1
+  
+  # Glial / support cells
+  "CDH19", "DCC",                 # NCC
+  "TOP2A", "BUB1",                # SCP
+  "COL19A1", "OLFML2A",           # SC
+  "SLC38A11", "TMOD1",             # OEC
+  "MITF", "HEY2",                 # Mel
+  
+  # Mesenchymal / stromal
+  "SOX2", "GSTP1",                # MSC
+  "KIF18B",                       # Mes0
+  "ITGA8", "PAX9",                # Mes1
+  "CREB5", "NRG1",                # Mes2
+  "COL13A1", "ANO5",              # Osteo
+  "ACAN", "COL9A2",               # Cartl
+  "PDGFRB", "ABCC9",              # Peri
+  
+  # Vascular / immune / muscle
+  "VWF", "FLT1",                  # EC
+  "PROX1", "STAB2",               # Lymph
+  "PAX7", "PDE1C",                # Sat
+  "MYPN", "ASB5",                 # SM
+  "CSF1R", "CD163"               # MG
+)
+
+p <- celldot(obj, features = canonical_markers, group.by = "ann2", 
+              plot.title = "Canonical markers for cell type annotations", flip = T,  x.angle = 90, font.size = 10) 
+p
+savefig(fig = p, filename = file.path(outdir, "plots/figS4b"), width = 6.5, height = 10)
+
+```
+
+
+```{r}
+
+cellcorr <- function(object, 
+                     group.by = "seurat_clusters",
+                     assay = "RNA", 
+                     slot = "data",
+                     plot.title = NULL,
+                     column_names_rot = 45,
+                     fontsize = 10,
+                     pdf_width = 5,
+                     pdf_height = 6,
+                     fig_name = NULL,
+                     save = FALSE,
+                     dir.results = ".") {
+  
+  
+
+
+```
+
+
+
+## figS4c top panel
+
+```{r fig.width=4, fig.height=3}
+
+cellcorr(obj, group.by = "ann0", assay = "RNA", fontsize = 10,  column_names_rot = 90, 
+         pdf_width = 4, pdf_height = 3, fig_name = "figS4c_top", save = T, dir.results = file.path(outdir, "plots/"))
+
+```
+
+## figS4c bottom panel
+
+```{r fig.width=5, fig.height=4}
+
+cellcorr(obj, group.by = "ann1", assay = "RNA", fontsize = 10,  column_names_rot = 90, 
+         pdf_width = 8, pdf_height = 7, fig_name = "figS4c_bottom", save = T, dir.results = file.path(outdir, "plots/"))
+
+```
+
+## figS4d
+
+```{r fig.width=8, fig.height=7}
+
+cellcorr(obj, group.by = "ann2", assay = "RNA", fontsize = 10,  column_names_rot = 90, 
+         pdf_width = 8, pdf_height = 7, fig_name = "figS4d", save = T, dir.results = file.path(outdir, "plots/"))
+
+```
+
+
+
+# Session Info
+
+```{r session_info}
+utils::capture.output(devtools::session_info())
+```
+
