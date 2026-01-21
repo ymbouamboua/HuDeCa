@@ -1,0 +1,387 @@
+---
+title: "HUDECA — Figure 6: Analysis of the expression of the olfactory receptors (ORs) in the fetal human olfactory system"
+author: "Mbouamboua Yvon <yvon.mbouamboua@inserm.fr>"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+date: '`r format(Sys.Date())`'
+---
+
+## Goal
+Final figures
+
+## Setup
+```{r setup, include=TRUE, message=FALSE, warning=FALSE}
+
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+root <- '/Users/yvon.mbouamboua/projects/singlecell/000-hudeca'
+outdir <- file.path(root, 'out', '000-github/fig6')
+invisible(lapply(c(outdir, file.path(outdir, 'data'), file.path(outdir, 'plots')),
+                 dir.create, recursive = TRUE, showWarnings = FALSE))
+srcr <- file.path(root, 'src', 'R')
+invisible(lapply(list.files(srcr, full.names = TRUE), source))
+appdir <- Sys.getenv('APPS', '~/projects/apps')
+if (dir.exists(appdir)) {
+  pkgfile <- file.path(appdir, 'packages.R')
+  if (file.exists(pkgfile)) sys.source(pkgfile, envir = .GlobalEnv)
+  helper_files <- list.files(appdir, pattern = '\\.R$', full.names = TRUE)
+  helper_files <- helper_files[basename(helper_files) != 'packages.R']
+  invisible(lapply(helper_files, sys.source, envir = .GlobalEnv))
+}
+
+```
+
+
+# Load data
+
+```{r}
+
+obj <- readRDS(file.path(root, "out/002-annotation/data/FN_harmony_clean.rds"))
+custom_colors <-  readRDS(file.path(root, "analysis/custom-colors-nature-safe.rds"))
+ORs <- readxl::read_excel(file.path(root, "data/proc/ORs/401_ORs.xlsx"))
+OR_family <- readxl::read_excel(file.path(root, "data/proc/ORs/OR_family.xlsx"))
+
+```
+
+
+# Fig6a
+
+```{r}
+
+plot_gene_set_expression <- function(object,
+                                     features,
+                                     threshold = 0,
+                                     set.log = TRUE,
+                                     x.angle = 0,
+                                     x.lab = FALSE,
+                                     theme = "classic",
+                                     font.size = 10,
+                                     leg.pos = c(0.25, 0.9),
+                                     ...) {
+  
+  # Subset the Seurat object for the selected genes
+  filt <- subset(object, features = features)
+  #filt <- filt[rowSums(filt[["RNA"]]@layers$counts > 0) > 0, ]
+  filt <- filt[rowSums(Seurat::GetAssayData(filt, assay = "RNA", slot = "counts") > 0) > 0,]
+  
+  # Extract normalized expression data for these genes
+  expr_data <- FetchData(filt, vars = rownames(filt))
+  
+  # Calculate the mean expression for each receptor across all cells
+  mean_expression <- colMeans(expr_data)
+  
+  # Create a data frame for plotting
+  expr_df <- data.frame(Receptor = names(mean_expression),
+                        Expression = mean_expression)
+  
+  # Order by expression levels
+  expr_df <- expr_df[order(expr_df$Expression), ]
+  
+  # Calculate the number of olfactory receptors (excluding VN1R1 and VN1R2)
+  num_olfactory_receptors <- sum(!expr_df$Receptor %in% c("VN1R1", "VN1R2"))
+  
+  # Create a label for the olfactory receptors that includes the count
+  olfactory_label <- paste0("Olfactory receptors (", num_olfactory_receptors, ")")
+  
+  # Modify the Receptor_Group to include specific labels
+  expr_df$Receptor_Group <- ifelse(expr_df$Receptor %in% c("VN1R1", "VN1R2"),
+                                   expr_df$Receptor, olfactory_label)
+  
+  # Set colors for the plot
+  fill_colors <- c("VN1R1" = "red", "VN1R2" = "orange", "Olfactory receptors (0)" = "#20679B")
+  fill_colors[olfactory_label] <- "#20679B"
+  
+  # Count the number of cells expressing each receptor
+  expressing_cells <- expr_data > threshold
+  cell_counts <- colSums(expressing_cells)
+  expr_df$Cell_Count <- cell_counts[match(expr_df$Receptor, names(cell_counts))]
+  
+  # Optionally calculate -log10(expression) for better visualization
+  if (set.log) {
+    expr_df$Log_Expression <- -log10(expr_df$Expression)
+    y_var <- "Log_Expression"
+    y_label <- "-Log10(Normalized Expression)"
+  } else {
+    expr_df$Log_Expression <- expr_df$Expression
+    y_var <- "Expression"
+    y_label <- "Normalized Expression"
+  }
+  
+  # Plot the expression levels
+  p <- ggplot(expr_df, aes(x = reorder(Receptor, !!sym(y_var)), y = !!sym(y_var), fill = Receptor_Group)) +
+    geom_bar(stat = "identity") +
+    scale_fill_manual(values = fill_colors, name = "Receptor types") +
+    labs(x = "Receptors", y = y_label) +
+    plot_theme(theme.style = theme,
+               leg.pos = leg.pos,
+               font.size = font.size,
+               x.angle = x.angle,
+               xlab = x.lab,
+               ...) 
+  
+  return(p)
+}
+
+```
+
+
+
+
+```{r fig.width=6, fig.height=4}
+
+sub <- subset_seurat(obj,  group.by = "ann2",  use.harmony = T,  harmony.group = "sample", min.dist = 1, spread = 0.5,  idents = c("INP","iOSN"))
+genes <- intersect(ORs$Gene_name, rownames(sub))
+genes <- c(genes, "VN1R1", "VN1R2")
+cellfeat(sub, features = c("VN1R1", "VN1R2"))
+length(genes)
+cellmap(sub)
+p <- plot_gene_set_expression(object = sub,  features = genes, threshold = 0, set.log = T,
+                              leg.pos = c(0.25, 0.9), theme = "classic", font.size = 10)
+p@data
+savefig(fig = p, filename = file.path(outdir, "plots/fig6a"), width = 4, height = 3)
+write.table(p$data, file = file.path(outdir, "data/data_ig6a.tsv"), sep = "\t", row.names = F, quote = F)
+
+```
+
+
+
+
+# Fig6b
+
+
+```{r fig.width=4, fig.height=2.5}
+
+sub <- cellslice(obj,  group.by = "ann2",  use.harmony = T, preprocess = T,
+                     harmony.group = "sample", min.dist = 1, spread = 0.5,
+                     idents = c("OHBC", "CycBasal", "MV", "SUS", "GBC", "INP", "iOSN"))
+
+genes <- intersect(ORs$Gene_name, rownames(sub))
+
+p <- genesum(
+  object = sub,
+  gene.list = genes,
+  group.var = "ann2",
+  fill.var = "group",
+  font.size = 10,
+  sample.var = "sample",
+   mode = "pseudobulk",theme = "classic",
+  leg.pos = c(0.20, 0.9),
+  fill.colors = custom_colors$group, return.data = T
+)
+
+p
+savefig(fig = p$plot, filename = file.path(outdir, "plots/fig6b"), width = 4, height = 3)
+write.table(p$data, file = file.path(outdir, "data/data_fig6b.tsv"), sep = "\t", row.names = F, quote = F)
+
+
+```
+
+
+
+## Fig6c
+
+
+```{r fig.width=6.5, fig.height=5}
+
+sub <- subset_seurat(obj,  group.by = "ann2",  use.harmony = T,  
+                     harmony.group = "sample", min.dist = 1, spread = 0.5,
+                     idents = c("INP", "iOSN"))
+
+cellmap(sub, group.by = "ann2")
+
+res <- gsetplot(
+  obj = sub,pairwise.groups = list("INP","iOSN"),
+  group.by = "ann2", 
+  stage = "stage",
+  geneset = ORs$Gene_name,
+  label.size = 2,
+  show.sig = T,
+  pval = F,
+  x.lab = "Olfactory recptors",
+  sig.size = 6, 
+  lab.size = 10,
+  leg.size = 10,
+  ann.counts = F,
+  leg.ttl.size = 10,
+  leg.pos = c(0.25, 0.9),
+  facet.label.size = 14,theme = "classic",font.size = 10,
+  fill.cols = c("INP" = "#4463D9", "iOSN" = "#C63F70")
+)
+
+res$plot
+savefig(fig = res$plot, filename = file.path(outdir, "plots/fig6c"), width = 4, height = 3)
+write.table(res$binned.data, file = file.path(outdir, "data/data_fig6c.tsv"), sep = "\t", row.names = F, quote = F)
+
+```
+
+
+
+
+```{r fig.width=8, fig.height=4}
+
+
+# keep as factor with order
+sub@meta.data$stage <- factor(
+  sub@meta.data$stage,
+  levels = c("PCW12","PCW10","PCW8","PCW7")
+)
+#sub@meta.data$stage <- as.character(sub@meta.data$stage)
+
+res <- gsetplot(
+  obj = sub,
+  pval = F,show.sig = F,
+  geneset = ORs$Gene_name,
+  group.by  = "ann2",
+  stage = "stage",
+  mode = "faceted",facet.bg = FALSE,
+  x.lab = "Olfactory receptors",
+  module.score = TRUE,
+  module.name = "ORscore", theme = "classic",facet.ncol = 4,
+  pb.logical = FALSE, panel.fill = "white",
+  ann.counts = F, leg.pos = c(0.90, 0.95),
+  fill.cols = c("INP" = "#4463D9", "iOSN" = "#C63F70")
+)
+
+res$plot
+savefig(fig = res$plot, filename = file.path(outdir, "plots/fig6c_supp"), width = 8, height = 4)
+write.table(res$plot@data, file = file.path(outdir, "data/data_fig6c.tsv"), sep = "\t", row.names = F, quote = F)
+
+
+```
+
+
+
+
+## Fig6d
+
+```{r fig.width=5, fig.height=4}
+
+sub <- subset_seurat(obj,  group.by = "ann2",  use.harmony = T,  harmony.group = "sample", min.dist = 1, spread = 0.5, idents = c("INP", "iOSN"))
+genes <- intersect(OR_family$gene_name, rownames(sub))
+filt <- subset(sub, features = genes)
+filt <- filt[rowSums(GetAssayData(filt, assay = "RNA", slot = "counts") > 0) > 0, ]
+
+OR_family <- OR_family[OR_family$gene_name %in% rownames(filt), c("gene_name", "family", "class")]
+OR_family[c("family", "class")] <- lapply(OR_family[c("family", "class")], factor)
+expression_matrix <- as.matrix(filt[["RNA"]]@layers$counts)
+total_counts <- rowSums(expression_matrix)
+
+df <- OR_family %>% 
+  dplyr::group_by(family, class) %>% 
+  dplyr::summarise(count = n())
+sum(df$count)
+
+p <- ggplot(df, aes(x = family, y = count, fill = class)) +
+  geom_col(stat = "identity", position=position_dodge(), color = "black", linewidth = 0.2, width=0.5) +
+  labs(x = "OR families", y = "number of ORs", title = "") +
+  guides(fill=guide_legend(title="Class")) +
+  scale_fill_manual(values = c("#BCB82C","#20679B")) +
+  plot_theme(theme = "classic", 
+               leg.pos = c(0.8, 0.8), 
+               font.size = 10, x_angle = 0) +
+  theme(legend.key.height = unit(0.4, 'cm'),
+    legend.key.width = unit(0.4, 'cm'),
+    legend.background = element_blank()) 
+
+print(p)
+savefig(fig = p, filename = file.path(outdir, "plots/fig6d"), width = 5, height = 3)
+
+OR_family <- OR_family[,c("gene_name","family","class")]
+write.table(OR_family, file.path(outdir, "data/OR_family.tsv"), sep = "\t", row.names = F, quote = F)
+
+write.table(p@data, file.path(outdir, "data/data_fig6d.tsv"), sep = "\t", row.names = F, quote = F)
+sum(p@data$count)
+
+```
+
+
+
+# Fig6e
+
+```{r fig.width=8, fig.height=3}
+
+# Compute total OR expression per cell
+OR_genes <- ORs$Gene_name
+obj$OR_total_log <- Matrix::colSums(obj[OR_genes, , drop = FALSE])
+obj$OR_total_log <- log1p(obj$OR_total_log)   # log-transformed
+
+p <- cellvio(obj, group.by = "ann2", features = "OR_total_log", pt.size = 0, 
+             cols = custom_colors$ann2, rm.subttl = T)
+p
+savefig(fig = p, filename = file.path(outdir, "plots/fig6e"), width = 7, height = 3)
+
+```
+
+# Fig6g-h (see fig6f-g.ipynb in Python folder)
+
+# Fig6h
+
+```{r fig.width=2.2, fig.height=3}
+
+sub <- subset_seurat(obj,  group.by = "ann2",  use.harmony = T,  harmony.group = "sample", 
+                     min.dist = 1, spread = 0.5, idents = c("OHBC", "CycBasal", "MV", "SUS", "GBC", "INP", "iOSN"))
+
+genes <- intersect(ORs$Gene_name, rownames(sub))
+
+res <- dominance_score(
+  obj = sub,
+  geneset = genes,
+  group.by = "ann2",
+  add.meta = c("sample", "stage", "sex"),
+  idents = c("INP", "iOSN"),
+  bins = c(-Inf, 0.5, 1, 1.5, 2, Inf)
+)
+
+colors = c("INP"="#4463D9", "iOSN"= "#C63F70", "Others"= "gray")
+
+write.table(res$df, file.path(outdir, "data/source_data_dominance_score.tsv"), sep = "\t", row.names = F, quote = F)
+
+# Dominance bins
+p <- plot_dominance_score(res$df, mode = "bins", ident.col = "ident", colors = colors, font.size = 10, leg.pos = "none")
+p
+savefig(fig = p, filename = file.path(outdir, "plots/fig6h"), width = 2.2, height = 3)
+write.table(p@data, file.path(outdir, "data/data_fig6h.tsv"), sep = "\t", row.names = F, quote = F)
+
+```
+
+
+
+# Fig6i
+
+```{r  fig.width=2.2, fig.height=3}
+
+# High-dominance cells per stage
+p <- plot_dominance_score(res$df, mode = "high_cells", ident.col = "ident", stage.col = "stage", colors = colors, leg.dir = "vertical", leg.pos = c(0.2, 0.9))
+p
+savefig(fig = p, filename = file.path(outdir, "plots/fig6i"), width = 2.2, height = 3)
+write.table(p@data, file.path(outdir, "data/data_fig6i.tsv"), sep = "\t", row.names = F, quote = F)
+
+```
+
+
+
+# Fig6j
+
+```{r}
+
+p <- plot_dominance_score(res$df, mode = "top_genes", top.n = 20, flip = F, x.angle = 90)
+p
+savefig(fig = p, filename = file.path(outdir, "plots/fig6j"), width = 4, height = 3)
+write.table(p@data, file.path(outdir, "data/data_fig6j.tsv"), sep = "\t", row.names = F, quote = F)
+
+
+```
+
+
+
+```{r fig.width=6, fig.height=7}
+# Top dominant genes faceted by stage
+p <- plot_dominance_score(res$df, mode = "top_genes", stage.col = "stage", ncol = 4, top.n = 20, font.size = 10, x.angle = 0)
+p
+savefig(fig = p, filename = file.path(outdir, "supp_fig6j"), width = 6, height = 7)
+write.table(p@data, file.path(outdir, "data/data_supp_fig6j.tsv"), sep = "\t", row.names = F, quote = F)
+
+```
+
