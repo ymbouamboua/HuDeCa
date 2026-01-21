@@ -1,5 +1,5 @@
 ---
-title: "HUDECA — Extended Data Figure 4: Cell cycle and age-related analysis"
+title: "HUDECA — Extended Data Figure 6. Cell cycle dynamics in human olfactory epithelium cells"
 author: "Mbouamboua Yvon <yvon.mbouamboua@inserm.fr>"
 output:
   html_document:
