@@ -1,5 +1,5 @@
 ---
-title: "HUDECA — Extended Data Figure 3: Sex assignment quality control Detection of maternal erythroid contamination"
+title: "HUDECA — Extended Data Figure 4. Hierarchical annotation and transcriptional similarity of olfactory system cell types"
 author: "Mbouamboua Yvon <yvon.mbouamboua@inserm.fr>"
 output:
   html_document:
