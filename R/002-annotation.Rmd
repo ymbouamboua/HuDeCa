@@ -1,0 +1,638 @@
+---
+title: "000-HUDECA — 002-annotation"
+output: html_document
+date: '`r Sys.Date()`'
+---
+
+## Goal
+Cell type annotation
+
+## Setup
+```{r setup, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+root <- '/Users/yvon.mbouamboua/projects/singlecell/000-hudeca'
+outdir <- file.path(root, 'out', '0002-annotation')
+invisible(lapply(c(outdir, file.path(outdir, 'data'), file.path(outdir, 'plots')),
+                 dir.create, recursive = TRUE, showWarnings = FALSE))
+srcr <- file.path(root, 'src', 'R')
+invisible(lapply(list.files(srcr, full.names = TRUE), source))
+appdir <- Sys.getenv('APPS', '~/projects/apps')
+if (dir.exists(appdir)) {
+  pkgfile <- file.path(appdir, 'packages.R')
+  if (file.exists(pkgfile)) sys.source(pkgfile, envir = .GlobalEnv)
+  helper_files <- list.files(appdir, pattern = '\\.R$', full.names = TRUE)
+  helper_files <- helper_files[basename(helper_files) != 'packages.R']
+  invisible(lapply(helper_files, sys.source, envir = .GlobalEnv))
+}
+```
+
+# Load integrated data
+
+```{r}
+
+obj <- readRDS(file.path(dir.main, "out/001-integration/data/FN_integrated.rds"))
+scCustomize::as.anndata(x = obj, file_path = file.path(outdir, "data"),file_name = "FN_integrated.h5ad")
+
+# Define metadata table
+meta <- data.frame(
+  BulkSample = c("S1-PCW7","S2-PCW8","S3-PCW10","S5-PCW10","S4-PCW10.5","S6-PCW12","S7-PCW12","S8-PCW12"),
+  sample = c("S1-PCW7","S2-PCW8","S3-PCW10","S5-PCW10","S4-PCW10.5","S6-PCW12", "S7-PCW12","S8-PCW12"),
+  stage = c("PCW7","PCW8","PCW10","PCW10","PCW10","PCW12","PCW12","PCW12"),
+  group = c("PCW7-8","PCW7-8","PCW10","PCW10","PCW10","PCW12","PCW12","PCW12"),
+  age = c("7","8","10","10","10","12","12","12"),
+  bmi = c("Normal","Normal","Normal","Obese","Normal","Obese","Normal","Normal"),
+  bmi_group = c("Normal-7-8","Normal-7-8","Normal-10-12","Obese-10-12","Normal-10-12","Obese-10-12","Normal-10-12","Normal-10-12"),
+  sex = c("Male","Female","Male","Male","Female","Male","Female","Male"),
+  stringsAsFactors = FALSE
+)
+
+# Convert to factors with specified levels
+meta$sample <- factor(meta$sample, levels = c("S1-PCW7","S2-PCW8","S3-PCW10","S5-PCW10","S4-PCW10.5","S6-PCW12","S7-PCW12","S8-PCW12"))
+meta$stage <- factor(meta$stage, levels = c("PCW7","PCW8","PCW10","PCW12"))
+meta$group <- factor(meta$group, levels = c("PCW7-8","PCW10","PCW12"))
+meta$age <- factor(meta$age, levels = c("7","8","10","12"))
+meta$bmi <- factor(meta$bmi, levels = c("Normal","Obese"))
+meta$bmi_group <- factor(meta$bmi_group, levels = c("Normal-7-8","Normal-10-12","Obese-10-12"))
+meta$sex <- factor(meta$sex, levels = c("Male","Female"))
+
+# Add metadata to Seurat object
+obj <- AddMetaData(obj, meta = meta[match(obj$BulkSample, meta$BulkSample), ])
+
+cellmap(object = obj, group.by = "sample")
+cellmap(object = obj, group.by = "sex")
+cellmap(object = obj, group.by = "age")
+cellmap(object = obj, group.by = "stage")
+cellmap(object = obj, group.by = "group")
+cellmap(object = obj, group.by = "bmi")
+cellmap(object = obj, group.by = "bmi_group")
+cellmap(object = obj, group.by = "RNA_snn_res.0.5", label = T)
+
+```
+
+
+```{r}
+
+df1 <- raw@meta.data %>%
+  group_by(BulkSample) %>%
+  summarise(n_cells = n()) %>%
+  mutate(stage = "raw")
+
+
+df2 <- obj@meta.data %>%
+  group_by(sample) %>%
+  summarise(n_cells = n()) %>%
+  mutate(stage = "pre-integration")
+
+df1
+df2
+
+post_int <- integrated@meta.data %>%
+  group_by(sample) %>%
+  summarise(n_cells = n()) %>%
+  mutate(stage = "post-integration")
+
+# Combine
+df <- bind_rows(df1,df2)
+
+```
+
+
+
+# Azimuth prediction
+
+```{r fig.width=14, fig.height=8, message=F, warning=F}
+
+invisible(gc())
+DefaultAssay(obj) <- "RNA"
+obj <- FindVariableFeatures(obj)
+obj <- RunAzimuth(obj, reference = "fetusref")
+invisible(gc())
+DefaultAssay(obj) <- "RNA"
+obj@reductions$ref.umap <- NULL
+obj[["refAssay"]] <- NULL
+obj[["nCount_refAssay"]] <- NULL
+obj[["nFeature_refAssay"]] <- NULL
+obj[["percent.mt"]] <- NULL
+
+#Dim_Plot(object = obj, group.by = "seurat_clusters", label = T, legend = F, label.size = 4, pt.size = 1) 
+#Dim_Plot(object = obj, group.by = "predicted.annotation.l1", label = T, legend = F, label.size = 4, pt.size = 1) 
+#Stacked_VlnPlot(object = obj, features = c("nCount_RNA","nFeature_RNA", "percent.mito"),angle.x = 90, pt.size = 0.005,base.size = 12)
+
+p <- Cell_Prediction_Heatmap(obj, 
+                        cluster_var = "seurat_clusters", 
+                        annotation_var = "predicted.annotation.l1",
+                        theme_color = "viridis",
+                        cluster_rows = F,
+                        cluster_cols = T)
+print(p)
+save_plot(p, filename = file.path(outdir, "plots/azimuth_prediction"),formats = c("png", "pdf"),  width = 14, height = 10)
+
+```
+
+
+
+# Automated cellTypist annotation
+
+```{r fig.width=14, fig.height=4}
+
+# Chenqu_Suo_2022
+h5ad_obs <- readr::read_csv(file.path(outdir, "data/FN_Celltypist_Pan_Fetal_Human.csv"))
+dim(h5ad_obs)
+dim(obj)
+h5ad_obs <- h5ad_obs[, c("predicted_labels", "over_clustering", "majority_voting","conf_score")]
+names(h5ad_obs) <- c("Chenqu_Suo_2022_predicted_labels", "Chenqu_Suo_2022_over_clustering", "Chenqu_Suo_2022_majority_voting","Chenqu_Suo_2022_conf_score")
+metadata <- obj@meta.data
+metadata <- cbind(metadata, h5ad_obs)
+obj@meta.data <- metadata
+dim(obj)
+
+cell_prediction_heatmap(obj, cluster_var = "seurat_clusters", annotation_var = "Chenqu_Suo_2022_majority_voting",
+                        theme_color = "viridis",cluster_rows = T,cluster_cols = F, plot_title = "Pan_Fetal_Human")
+
+# Braun_2023
+h5ad_obs <- readr::read_csv(file.path(outdir, "data/FN_Celltypist_Developing_Human_Brain.csv"))
+dim(h5ad_obs)
+dim(obj)
+h5ad_obs <- h5ad_obs[, c("predicted_labels", "over_clustering", "majority_voting","conf_score")]
+names(h5ad_obs) <- c("Braun_2023_predicted_labels", "Braun_2023_over_clustering", "Braun_2023_majority_voting","Braun_2023_conf_score")
+metadata <- obj@meta.data
+metadata <- cbind(metadata, h5ad_obs)
+obj@meta.data <- metadata
+dim(obj)
+
+cell_prediction_heatmap(obj, cluster_var = "seurat_clusters", annotation_var = "Braun_2023_majority_voting",
+                        theme_color = "viridis",cluster_rows = T,cluster_cols = F, plot_title = "Developing_Human_Brain")
+
+cell_prediction_heatmap(obj, cluster_var = "seurat_clusters", annotation_var = "Chenqu_Suo_2022_predicted_labels",
+                        theme_color = "viridis",cluster_rows = T,cluster_cols = F, plot_title = "Pan_Fetal_Human")
+
+```
+
+
+# umap
+
+```{r fig.width=8, fig.height=6}
+
+cellmap(obj, group.by = "seurat_clusters", label = T, dark = T, legend = T, pt.size = 0.5)
+
+```
+
+
+
+# Check cluster quality
+
+```{r fig.width=10, fig.height=5}
+cellvio(obj, group.by = "seurat_clusters", features = c("nFeature_RNA", "nCount_RNA","percent_mito"), stack = T, show.pval = F)
+cellvio(obj, group.by = "sample", features = c("nFeature_RNA", "nCount_RNA","percent_mito"), stack = T, pt.size = 0.1)
+```
+
+# Find markers
+
+```{r fig.width=10, fig.height=20, warning=FALSE, message=FALSE,error=FALSE}
+
+## Filter quality by removing unwanted genes
+sub <- filter_genes(obj)
+markers <- cellmarker(sub,  group.by = "seurat_clusters", only.pos = T, max.cells.per.ident = 1000, min.pct = 0.1)
+write.table(markers, file.path(outdir, "data/harmony_clusters.tsv"), sep = "\t", row.names = F, quote = F)
+rm(sub)
+markers <- read.delim(file.path(outdir, "data/harmony_clusters.tsv"))
+top <- markers %>% group_by(cluster) %>% top_n(n = 3, wt = avg_log2FC)
+celldot(obj, features = rev(top$gene), flip = T, group.by = "seurat_clusters") 
+
+```
+
+
+```{r fig.width=10, fig.height=6}
+
+Idents(obj) <- "seurat_clusters"
+obj <- FindSubCluster(obj, cluster = 11, resolution = 0.3, graph.name = "RNA_snn", subcluster.name = "C11")
+Idents(obj) <- "C11"
+obj <- FindSubCluster(obj, cluster = 23, resolution = 0.2, graph.name = "RNA_snn", subcluster.name = "subclusters")
+cellmap(object = obj, group.by = "subclusters", label = T, pt.size = 1, n.cells = T, label.size = 5)
+
+```
+
+
+
+```{r fig.width=12, fig.height=6}
+
+gnrh1 <- cellpick(obj, clusters = c(27), cluster.col = "seurat_clusters", pos.genes =  c("GNRH1"), expr.thresh = 0)
+
+marker_panel <- list(
+  OEC = c("SOX10","S100B","PLP1","PMP22","CLDN11","GFAP"),
+  Schwann = c("MPZ","MBP","ERBB3","SOX10","PLP1","GINS3","IL1RAP"),
+  Melanocyte = c("MITF","TYR","PMEL","DCT","MLANA")
+  #Neuron = c("SLC24A2","KLHL1","PRDM8","OMP","TUBB3","GAP43")
+)
+
+marker_panel <- unique(unlist(marker_panel))
+celldot(obj, features = c(marker_panel,"PDZRN4","ADAM12"), flip = T, base.size = 9)
+
+mel <- cellpick(obj, clusters = c("11_0","11_3"), cluster.col = "subclusters", pos.genes =  c("MITF"), expr.thresh = 1)
+# sch.cells <- cellpick(obj, clusters = c("29_0"), cluster.col = "subclusters", genes =  c("MPZ"), threshold = 1)
+
+```
+
+
+
+
+```{r}
+
+cellmap(object = obj, group.by = "subclusters", label = T, label.face = "bold", label.size = 5, 
+         pt.size = 0.5, legend = F, dark = T, figplot = T)
+```
+
+
+# Label transfert
+
+## Annotate OHBC
+
+```{r}
+
+cellvio(obj, group.by = "sample", features = c("nCount_RNA"))
+cellmap(obj, group.by = "RNA_snn_res.0.5", label = T)
+
+ohbc <- cellpick(
+  obj,
+  pos.genes = c("TP63","KRT5","KRT14","COL17A1","DST","MEG3"),
+  min.genes = 2,
+  expr.thresh = 0.5,
+  neg.genes = c("MUC5AC","MUC5B","CDC20B","SOX2"),
+  cluster.col = "RNA_snn_res.0.5",
+  clusters = 13,
+  meta.col = "group",
+  meta.vals = c("PCW10","PCW12")
+)
+
+```
+
+## Annotation level 2
+
+```{r fig.width=10, fig.height=6}
+
+obj@meta.data$ann2 <- NULL
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(28),"ann2"] <- "MSC" # PAX6, "SOX2
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(32),"ann2"] <-"Deut" # "DEUP1","HES6","CCNO"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(7,41),"ann2"] <-"MCC" # "SNTN","DNAH5"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(10,35,36),"ann2"] <-"EC"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(34),"ann2"] <-"Lymph"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(19),"ann2"] <-"Peri" # PDGFRB
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(22,40),"ann2"] <-"NP" # "GFAP",SOX2,HES5
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(27),"ann2"] <-"GABA" #"SLC32A1","GAD1","GAD2"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(21,39),"ann2"] <-"GLUT" # "SLC17A6","SLC17A7","CRH"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(38),"ann2"] <-"NOS1"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(11),"ann2"] <- "OEC" # "SOX10", "S100B", "VIM", "PLP1", "GFAP", "FABP7", "CD44","NELL2"
+obj@meta.data[obj@meta.data$subclusters %in% c("11_1"),"ann2"] <-"NCC" 
+obj@meta.data[obj@meta.data$Braun_2023_majority_voting %in% c("Head neural crest cells"),"ann2"] <- "NCC" #"FOXD3", "TFAP2A", "NGFR"
+obj@meta.data[obj@meta.data$subclusters %in% c("11_4"),"ann2"] <-"SCP" 
+obj@meta.data[obj@meta.data$subclusters %in% c("11_2"),"ann2"] <-"SC" # "MPZ","MBP","ERBB3"
+obj@meta.data[rownames(obj@meta.data) %in% c(mel),"ann2"] <-"Mel" # "MITF"
+obj@meta.data[obj@meta.data$Chenqu_Suo_2022_predicted_labels %in% c("MELANOCYTE"),"ann2"] <- "Mel" 
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(9,18,29),"ann2"] <-"Cartl" # "COL9A1", "COL11A1", "COL2A1", "ACAN", "WWP2"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(1,6,14),"ann2"] <-"Osteo" # "RUNX2"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(4,37),"ann2"] <-"Mes0" # prolif cells
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(0,5,13),"ann2"] <- "Mes1"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(2,20,24,30,33),"ann2"] <- "Mes2"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(12),"ann2"] <-"SM"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(15),"ann2"] <- "Sat"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(42),"ann2"] <-"GBC" # "HES6","TCF12","TCF4","TCF3","HIF1A","ARNT"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(8,16,31),"ann2"] <-"RHBC" # TP63, SOX2
+#obj@meta.data[obj@meta.data$seurat_clusters %in% c(16),"ann2"] <-"0HBC"
+obj@meta.data[rownames(obj@meta.data) %in% c(ohbc),"ann2"] <- "OHBC" # TP63, COL17A1
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(26),"ann2"] <-"CycBasal"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(3),"ann2"]  <- "MV" # "MUC5AC (PMCID: PMC8564600), "GLIS3
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(17),"ann2"]  <- "SUS" # "IQCJ-SCHIP1", "TMEM132D", "LPGAT1"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(25),"ann2"] <-"MG" # "CX3CR1", "CD14","TMEM119","MS4A4A","CSF1R","ITGAM","P2RY12"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(23),"ann2"] <- "iOSN"
+obj@meta.data[obj@meta.data$subclusters %in% c("23_1"),"ann2"] <- "INP" # NEUROD1, NEUROG1, LHX2
+obj@meta.data[rownames(obj@meta.data) %in% c(gnrh1),"ann2"] <-"GnRH" # "ISL1","GNRH1","LINC01060","TAC3
+
+cellmap(obj, group.by="ann2",  label = T, pt.size = 0.5, figplot = T, dark = T)
+
+```
+
+
+
+
+```{r fig.width=18, fig.height=6}
+
+pb_prop_plot(input = obj, donor.col = "sample", stage.col = "stage", cell.col  = "ann2",
+             ncol = 7, show.p = F, leg.pos = "none",
+  plot.type = "bar",pt.size = 1.5, facet.by = "cell", font.size = 10, facet.bg = F)
+
+```
+
+
+# Order the cells
+
+```{r}
+
+# Level 2: fine-grained cell types
+ann2_levels <- c(
+"RHBC","OHBC","CycBasal","GBC","INP","iOSN","Deut","MCC","MV","SUS",  # Epithelium
+"NP","GLUT","GABA","GnRH","NOS1", # Neuronal
+"NCC","SCP","SC","OEC","Mel", # Neural Crest / Glia
+"MSC","Mes0","Mes1","Mes2","Osteo","Cartl", # Mesenchyme
+"Peri","EC","Lymph",  # Vascular
+"Sat","SM", # Muscle
+"MG" # Immune
+)
+
+# Ensure your Seurat object has ann2
+obj$ann2 <- factor(obj$ann2, levels = ann2_levels)
+
+# Level 1 mapping → lineage groups
+
+ann_map_level1 <- list(
+  "Olfactory Epithelium"   = c("OHBC","CycBasal","GBC","MV","SUS","INP","iOSN"),
+  "Respiratory Epithelium" = c("RHBC","Deut","MCC"),
+  "Neuronal"               = c("NP","GLUT","GABA","GnRH","NOS1"),
+  "NeuralCrest_Glia"       = c("NCC","SCP","SC","OEC","Mel"),
+  "Mesenchyme"             = c("MSC","Mes0","Mes1","Mes2","Osteo","Cartl"),
+  "Vascular"               = c("Peri","EC","Lymph"),
+  "Muscle"                 = c("Sat","SM"),
+  "Immune"                 = c("MG")
+)
+
+# Invert mapping (cell type → lineage)
+inv_level1 <- unlist(lapply(names(ann_map_level1), function(x) {
+  setNames(rep(x, length(ann_map_level1[[x]])), ann_map_level1[[x]])
+}))
+
+level1_vector <- inv_level1[as.character(obj$ann2)]
+names(level1_vector) <- colnames(obj)
+
+# Keep only cells with valid mapping
+valid_cells1 <- names(level1_vector)[!is.na(level1_vector)]
+#obj <- subset(obj, cells = valid_cells1)
+
+obj <- AddMetaData(obj, metadata = level1_vector[valid_cells1], col.name = "ann1")
+obj$ann1 <- factor(obj$ann1, levels = names(ann_map_level1))
+
+ann_map_level0 <- list(
+  "Epithelium" = c("Olfactory Epithelium","Respiratory Epithelium"),
+  "Neuronal"   = c("Neuronal"),
+  "NeuralCrest_Glia" = c("NeuralCrest_Glia"),
+  "Mesenchyme" = c("Mesenchyme"),
+  "Vascular"   = c("Vascular"),
+  "Muscle"     = c("Muscle"),
+  "Immune"     = c("Immune")
+)
+
+# inv_level0 maps Level1 → Level0
+inv_level0 <- unlist(lapply(names(ann_map_level0), function(x) {
+  setNames(rep(x, length(ann_map_level0[[x]])), ann_map_level0[[x]])
+}))
+
+# Create a vector for ALL cells
+level0_vector <- inv_level0[as.character(obj$ann1)]
+
+# Name the vector with Seurat cell names
+names(level0_vector) <- colnames(obj)
+
+# Add to Seurat metadata
+obj <- AddMetaData(obj, metadata = level0_vector, col.name = "ann0")
+
+# Convert to factor with only defined levels
+obj$ann0 <- factor(obj$ann0, levels = names(ann_map_level0))
+
+#saveRDS(obj, file.path(dir.main, "output/002-annotation/data/FN_harmony.rds"))
+
+```
+
+```{r}
+# # Level 2: fine-grained cell types
+ann2_levels <- c(
+"RHBC","OHBC","CycBasal","GBC","INP","iOSN","Deut","MCC","MV","SUS",  # Epithelium
+"NP","GLUT","GABA","GnRH","NOS1", # Neuronal
+"NCC","SCP","SC","OEC","Mel", # Neural Crest / Glia
+"MSC","Mes0","Mes1","Mes2","Osteo","Cartl", # Mesenchyme
+"Peri","EC","Lymph",  # Vascular
+"Sat","SM", # Muscle
+"MG" # Immune
+)
+
+# Ensure your Seurat object has ann2
+obj$ann2 <- factor(obj$ann2, levels = ann2_levels)
+
+# Level 1 mapping → lineage groups
+
+ann_map_level1 <- list(
+  "Olfactory Epithelium"   = c("OHBC","CycBasal","GBC","MV","SUS","INP","iOSN"),
+  "Respiratory Epithelium" = c("RHBC","Deut","MCC"),
+  "Neuronal"               = c("NP","GLUT","GABA","GnRH","NOS1"),
+  "NCC-Glia"               = c("NCC","SCP","SC","OEC","Mel"),
+  "Mesenchyme"             = c("MSC","Mes0","Mes1","Mes2","Cartl"),
+  "Osteoblast"             = c("Osteo"),
+  "Vascular"               = c("Peri","EC","Lymph"),
+  "Muscle"                 = c("Sat","SM"),
+  "Immune"                 = c("MG")
+)
+
+# Invert mapping (cell type → lineage)
+inv_level1 <- unlist(lapply(names(ann_map_level1), function(x) {
+  setNames(rep(x, length(ann_map_level1[[x]])), ann_map_level1[[x]])
+}))
+
+level1_vector <- inv_level1[as.character(obj$ann2)]
+names(level1_vector) <- colnames(obj)
+
+# # Keep only cells with valid mapping
+valid_cells1 <- names(level1_vector)[!is.na(level1_vector)]
+#obj <- subset(obj, cells = valid_cells1)
+
+obj <- AddMetaData(obj, metadata = level1_vector[valid_cells1], col.name = "ann1")
+obj$ann1 <- factor(obj$ann1, levels = names(ann_map_level1))
+
+ann_map_level0 <- list(
+  "Epithelium" = c("Olfactory Epithelium","Respiratory Epithelium"),
+  "Neuronal"   = c("Neuronal"),
+  "NCC-Glia" = c("NCC-Glia"),
+  "Mesenchyme" = c("Mesenchyme","Osteoblast"),
+  "Vascular"   = c("Vascular"),
+  "Muscle"     = c("Muscle"),
+  "Immune"     = c("Immune")
+)
+
+# inv_level0 maps Level1 → Level0
+inv_level0 <- unlist(lapply(names(ann_map_level0), function(x) {
+  setNames(rep(x, length(ann_map_level0[[x]])), ann_map_level0[[x]])
+}))
+
+# Create a vector for ALL cells
+level0_vector <- inv_level0[as.character(obj$ann1)]
+
+# Name the vector with Seurat cell names
+names(level0_vector) <- colnames(obj)
+
+# Add to Seurat metadata
+obj <- AddMetaData(obj, metadata = level0_vector, col.name = "ann0")
+
+# Convert to factor with only defined levels
+obj$ann0 <- factor(obj$ann0, levels = names(ann_map_level0))
+
+saveRDS(obj, file.path(dir.main, "output/002-annotation/data/FN_harmony_clean.rds"))
+# scCustomize::as.anndata(x = obj, file_path = file.path(dir.main, "output/002-annotation/data"),file_name = "hudeca_nose.h5ad")
+
+cellmap(obj, group.by = "ann0")
+cellmap(obj, group.by = "ann1") 
+cellmap(obj, group.by = "ann2")
+```
+
+
+
+
+# Remove outlier cells
+
+```{r fig.width=12, fig.height=14}
+
+highlight_clusters(object = obj, group.by = "ann2", mode = "single", ncol = 4)
+
+res <- filter_outliers(obj = obj, group.by = "ann2", density.threshold = 0.95, k = 40, relax = 3,
+                       clean.all = T, verbose = T, return.plot = F)
+
+highlight_clusters(object = res$obj, group.by = "ann2", mode = "single", ncol = 4)
+
+obj <- res$obj
+
+res <- filter_outliers(obj = obj, group.by = "ann2", target.clusters = "MSC",
+                       density.threshold = 0.70, k = 50, relax = 1.2,clean.all = F, verbose = T, return.plot = F)
+obj <- res$obj
+rm(res)
+highlight_clusters(object = obj, group.by = "ann2",cluster.names = "MSC", mode = "single", ncol = 1)
+
+
+res <- filter_outliers(obj = obj, group.by = "ann2", target.clusters = "Peri",
+                       density.threshold = 0.90, k = 50, relax = 2,clean.all = F, verbose = T, return.plot = F)
+
+highlight_clusters(object = res$obj, group.by = "ann2",cluster.names = "Peri", mode = "single", ncol = 1)
+
+obj <- res$obj
+rm(res)
+highlight_clusters(object = obj, group.by = "ann2", mode = "single", ncol = 4)
+
+```
+
+
+
+```{r fig.width=10, fig.height=6}
+
+cellmap(obj, group.by="ann0",  label = T, pt.size = 0.5, figplot = T, dark = T)
+cellmap(obj, group.by="ann1",  label = T, pt.size = 0.5, figplot = T, dark = T)
+cellmap(obj, group.by="ann2",  label = T, pt.size = 0.5, figplot = T, dark = T)
+cellmap(obj, group.by="sample",  label = F, pt.size = 0.5, figplot = T, dark = T)
+cellmap(obj, group.by="group",  label = T, pt.size = 0.5, figplot = T, dark = T)
+cellmap(obj, group.by="bmi",  label = T, pt.size = 0.5, figplot = T, dark = T)
+
+```
+
+
+# Save data
+
+```{r}
+
+obj <- fix_seurat_matrix_names(obj)
+saveRDS(obj, file.path(outdir, "data/FN_harmony.rds"))
+
+```
+
+
+# Remove ambient RNA
+
+```{r}
+
+decontx <- run_decontx(obj)
+saveRDS(decontx, file.path(outdir, "data/decontX.rds"))
+obj[["RNA"]]@layers$counts <- decontx$cleaned_counts
+obj$decontX_contamination <- decontx$sce$decontX_contamination
+obj <- NormalizeData(obj) %>% FindVariableFeatures() %>% ScaleData()
+obj <- fix_seurat_matrix_names(obj)
+
+```
+
+## Plot decontx contamination
+
+```{r}
+
+df <- data.frame(
+  UMAP1 = obj[["umap"]]@cell.embeddings[,1],
+  UMAP2 = obj[["umap"]]@cell.embeddings[,2],
+  contamination = decontx$sce$decontX_contamination
+)
+
+p <- ggplot(df, aes(UMAP1, UMAP2, color = contamination)) +
+  geom_point(size = 0.3, alpha = 0.8) +
+  #scale_color_viridis_c() +
+  scale_color_gradientn(
+    colors = c("blue", "green", "yellow", "orange", "red"),
+    guide = guide_colorbar(title = "Contamination", title.position = "left",
+      title.theme = element_text(angle = 90, vjust = 0.5),
+      barwidth = 1, barheight = 8, ticks = TRUE, frame.colour="black", ticks.colour="black")) +
+  plot_theme(theme = "classic", font.size = 14) +
+  ggtitle("DecontX contamination") +
+  theme(legend.pos = "right", legend.title.align = 0.5)
+p
+save_plot(p, file.path(outdir, "plots/cecontx_contamination"), formats = "pdf", width = 6, height = 5)
+
+```
+
+
+## plot_decontx_marker_percen
+
+```{r fig.width=18, fig.height=6}
+
+markers <- c("XIST","UTY","HBB","HBA1")
+
+res <- plot_decontx_marker_percent(
+  sce = decontx$sce,
+  markers = markers,fontsize = 14,
+  group_by = "ann2",
+  assays = c("counts","decontXcounts"),
+  plot_type = "bar", custom_colors = c("#151A1F", "#8CB9E6")
+)
+
+res$plot
+save_plot(res$plot, file.path(outdir, "plots/decontx_marker_percent"), formats = "pdf", width = 18, height = 6)
+
+
+```
+
+
+
+# Sex-chromosome–based sample identity and contamination quality control
+
+```{r}
+
+# Run QC and generate violin plots
+res <- sex_contamination_qc(
+  obj,
+  sample_col = "sample",
+  y_genes = c("UTY","RPS4Y1","ZFY","DDX3Y","KDM5D"),
+  xist_gene = "XIST",
+  eps = 1e-6,
+  female_thresh = 1,
+  male_thresh = -1,
+  eryth_genes = c("HBB","HBA1","HBA2","HBE1","HBG1","HBG2","HBM"),
+  eryth_percentile = 0.95,
+  remove_ambiguous = T,
+  majority_threshold = 0.5,
+  min_sex_score_diff = NULL,
+  out_file = file.path(outdir, "data/sex_qc.tsv")
+)
+
+# Access results
+tbl_summary <- res$tbl_summary
+obj <- res$filtered
+obj <- NormalizeData(obj) %>% FindVariableFeatures() %>% ScaleData()
+saveRDS(res$object, file.path(dir.main, "out/002-annotation/data/FN_harmony.rds"))
+saveRDS(res$filtered, file.path(dir.main, "out/002-annotation/data/FN_harmony_clean.rds"))
+rm(res)
+tbl_summary
+
+```
+
+
+## Session info
+```{r}
+sessionInfo()
+```
