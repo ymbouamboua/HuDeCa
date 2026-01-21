@@ -1,0 +1,337 @@
+---
+title: "HUDECA — Extended Data Figure 2: Quality control of human olfactory epithelium snRNA-seq data"
+author: "Mbouamboua Yvon <yvon.mbouamboua@inserm.fr>"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+date: '`r format(Sys.Date())`'
+---
+
+## Goal
+Final figures
+
+## Setup
+```{r setup, include=TRUE, message=FALSE, warning=FALSE}
+
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+root <- '/Users/yvon.mbouamboua/projects/singlecell/000-hudeca'
+outdir <- file.path(root, 'out', '008-figures/extended-figure2')
+invisible(lapply(c(outdir, file.path(outdir, 'data'), file.path(outdir, 'plots')),
+                 dir.create, recursive = TRUE, showWarnings = FALSE))
+srcr <- file.path(root, 'src', 'R')
+invisible(lapply(list.files(srcr, full.names = TRUE), source))
+appdir <- Sys.getenv('APPS', '~/projects/apps')
+if (dir.exists(appdir)) {
+  pkgfile <- file.path(appdir, 'packages.R')
+  if (file.exists(pkgfile)) sys.source(pkgfile, envir = .GlobalEnv)
+  helper_files <- list.files(appdir, pattern = '\\.R$', full.names = TRUE)
+  helper_files <- helper_files[basename(helper_files) != 'packages.R']
+  invisible(lapply(helper_files, sys.source, envir = .GlobalEnv))
+}
+
+```
+
+
+```{r}
+
+
+samples <- c("FN_S1256", "FN_S3478")
+
+objs <- load_seurat(
+  sample.dirs = samples,
+  parent.dir = file.path(root, "data/proc"),
+  use.filtered = TRUE,
+  #save.dir = file.path(dir.results, "data"),
+  merge = FALSE
+)
+
+```
+
+
+
+# Load data
+
+```{r}
+
+FN_S1256 <- readRDS(file.path(root, "out/000-qc/data/FN_S1256.rds"))
+FN_S3478 <- readRDS(file.path(root, "out/000-qc/data/FN_S3478.rds"))
+integrated <- readRDS(file.path(root, "out/002-annotation/data/FN_harmony.rds"))
+obj <- readRDS(file.path(root, "out/002-annotation/data/FN_harmony_clean.rds"))
+custom_colors <-  readRDS(file.path(root, "analysis/custom-colors-nature-safe.rds"))
+
+```
+
+
+
+
+# FigS2a
+
+```{r}
+
+FN_S1256 <- add_bulk_mapping_to_seurat(
+  object = objs$FN_S1256, 
+  remove_doublets = F,
+  combined_tsv = file.path(root, "analysis/notebook/FN_S1256_bulk_mapping/combined_results_with_bulk_mapping.tsv")
+)
+head(FN_S1256@meta.data)
+
+FN_S3478 <- add_bulk_mapping_to_seurat(
+  object = objs$FN_S3478, 
+  remove_doublets = F,
+  combined_tsv = file.path(root, "analysis/notebook/FN_S3478_bulk_mapping/combined_results_with_bulk_mapping.tsv")
+)
+head(FN_S3478@meta.data)
+
+raw <- get_merge(obj.list = list(FN_S1256,FN_S3478))
+raw@meta.data
+
+unique(FN_S1256$BulkSample)
+unique(FN_S3478$BulkSample)
+
+```
+
+
+```{r}
+
+sum_df <- bind_rows(FN_S1256@meta.data, FN_S3478@meta.data) %>%
+  mutate(
+    orig.ident = as.character(orig.ident),
+    BulkSample = as.character(BulkSample),
+    Status = case_when(
+      MajoritySinglet_DropletType == "doublet" ~ "Doublet",
+      MajoritySinglet_DropletType == "singlet" & BulkSample == "unassigned" ~ "Unassigned",
+      TRUE ~ "Singlet"
+    ),
+    Sample = ifelse(Status == "Singlet",
+                    BulkSample,
+                    paste0(Status, "_", orig.ident)),
+    Sample = factor(Sample, levels = c(
+      "S1-PCW7","S2-PCW8","S3-PCW10","S5-PCW10",
+      "S4-PCW10.5","S6-PCW12","S7-PCW12","S8-PCW12",
+      "Doublet_FN_S1256","Unassigned_FN_S1256",
+      "Doublet_FN_S3478","Unassigned_FN_S3478"
+    ))
+  ) %>%
+  group_by(Sample, Status) %>%
+  summarise(n = n(), .groups = "drop")
+
+
+
+# plot
+p <- ggplot(sum_df, aes(Sample, n, fill = Status)) +
+  geom_col(width = 0.65, color = "black", linewidth = 0.2) +
+  coord_flip() +
+  scale_fill_manual(values = c(Singlet = "#8CB9E6", Doublet = "black", Unassigned = "gray60")) + 
+  labs(x = NULL, y = "Number of barcodes", fill = "Demultiplexing status") +
+  plot_theme(theme = "classic", font.size = 10, leg.pos = "bottom",leg.dir = "horizontal")
+
+p
+
+savefig(fig = p, filename = file.path(outdir, "plots/figS2a"), width = 5, height = 4)
+write.table(sum_df, file.path(outdir, "data/data_source_figS2a.tsv"), sep = "\t", row.names = FALSE, quote = FALSE)
+
+```
+
+
+# FigS2b
+
+```{r}
+raw$percent_mito <- PercentageFeatureSet(raw, pattern = "MT-")
+raw@meta.data$sample <- factor(raw@meta.data$BulkSample, levels = c("S1-PCW7","S2-PCW8","S3-PCW10","S5-PCW10","S4-PCW10.5","S6-PCW12", "S7-PCW12","S8-PCW12"))
+
+```
+
+
+```{r fig.width=6.5, fig.height=5.5}
+
+p1 <- cellvio(raw, group.by = "BulkSample", features = c("nFeature_RNA", "nCount_RNA","percent_mito"), stack = T, 
+            pt.size = 0.1, assay = "RNA", slot = "counts", cols = custom_colors$sample, font.size = 10, ttl.pos = "left")
+
+p2 <- cellvio(obj, group.by = "sample", features = c("nFeature_RNA", "nCount_RNA","percent_mito"), stack = T,font.size = 10,
+            pt.size = 0.1, assay = "RNA", slot = "counts", ylab.global = "Filtered counts", cols = custom_colors$sample, ttl.pos = "left")
+
+p1 + p2
+savefig(fig = p1 + p2, filename = file.path(outdir, "plots/figS2b"), width = 6.5, height = 5.5)
+
+
+```
+
+
+# FigS2c
+
+```{r}
+
+decontX <- readRDS("~/projects/singlecell/000-hudeca/out/002-annotation/data/decontX.rds")
+
+df <- data.frame(
+  UMAP1 = integrated[["umap"]]@cell.embeddings[,1],
+  UMAP2 = integrated[["umap"]]@cell.embeddings[,2],
+  contamination = decontX$sce$decontX_contamination
+)
+
+font.size <- 10
+reduction <- "umap"
+dims <- c(1, 2)
+
+# Main UMAP plot
+plt <- ggplot(df, aes(UMAP1, UMAP2, color = contamination)) +
+  geom_point(size = 0.3, alpha = 0.8) +
+  scale_color_gradientn(
+    colors = c("blue", "green", "yellow", "orange", "red"),
+    guide = guide_colorbar(
+      title = "Contamination",
+      title.position = "left",
+      title.theme = element_text(angle = 90, vjust = 0.5),
+      barwidth = 0.7,
+      barheight = 8,
+      ticks = TRUE,
+      frame.colour = "black",
+      ticks.colour = "black"
+    )
+  ) +
+  plot_theme(theme = "classic", font.size = font.size) +
+  ggtitle("DecontX contamination") +
+  theme(
+    legend.position = "right",
+    legend.title.align = 0.5
+  ) +
+  NoAxes()
+
+# Axis labels
+x.lab.reduc <- paste0("UMAP_", dims[1])
+y.lab.reduc <- paste0("UMAP_", dims[2])
+
+# Small axis inset
+L <- 0.12
+axis.df <- data.frame(
+  x0 = c(0, 0),
+  y0 = c(0, 0),
+  x1 = c(L, 0),
+  y1 = c(0, L)
+)
+
+axis.plot <- ggplot(axis.df) +
+  geom_segment(
+    aes(x = x0, y = y0, xend = x1, yend = y1),
+    linewidth = 0.4,
+    lineend = "round"
+  ) +
+  xlab(x.lab.reduc) +
+  ylab(y.lab.reduc) +
+  coord_fixed() +
+  theme_classic(base_size = font.size) +
+  theme(
+    plot.background  = element_rect(fill = "transparent", colour = NA),
+    panel.background = element_rect(fill = "transparent", colour = NA),
+    axis.text        = element_blank(),
+    axis.ticks       = element_blank(),
+    axis.line        = element_blank(),
+    panel.border     = element_blank(),
+    plot.margin      = margin(0, 0, 0, 0)
+  )
+
+# Layout
+figure.layout <- c(
+  patchwork::area(t = 1,  l = 1,  b = 11, r = 11),  # main plot
+  patchwork::area(t = 10, l = 1,  b = 11, r = 2)    # axis inset
+)
+
+final_plot <- plt + axis.plot +
+  plot_layout(design = figure.layout)
+
+final_plot
+savefig(fig = final_plot, filename = file.path(outdir, "plots/figS2c"), width = 5, height = 4)
+write.table(df, file.path(outdir, "data/data_souirce_figS2c.tsv"), sep = "\t", row.names = T, quote = F)
+
+```
+
+
+# FigS2d
+
+```{r fig.width=7, fig.height=5}
+
+res <- plot_decontx_marker_percent(
+  sce = decontX$sce, 
+  #markers = c("XIST","UTY","KDM5D","HBB","HBA1"),
+  markers = c("XIST","UTY","HBA1"),
+  fontsize = 10, theme = "test",
+  group_by = "ann2",ncol = 1, leg.pos = "bottom", leg.dir = "horizontal",
+  assays = c("counts","decontXcounts"),
+  plot_type = "bar", custom_colors = c("#151A1F", "#8CB9E6")
+)
+
+res$plot
+savefig(fig = res$plot, filename = file.path(outdir, "plots/figS2d"), width = 7, height = 5)
+write.table(res$table, file.path(outdir, "data/data_souirce_figS2d.tsv"), sep = "\t", row.names = T, quote = F)
+rm(decontX)
+
+```
+
+
+
+
+# FigS2e
+
+
+```{r}
+cellmap(integrated, group.by = "sample")
+cellmap(obj, group.by = "sample")
+```
+
+
+```{r}
+
+unique(raw$BulkSample)
+unique(integrated$sample)
+unique(obj$sample)
+
+pre_int <- raw@meta.data %>%
+  dplyr::group_by(BulkSample) %>%
+  dplyr::summarise(n_cells = n()) %>%
+  dplyr::mutate(stage = "Pre-integration")
+
+names(pre_int)[names(pre_int)=="BulkSample"]="sample"
+pre_int <- subset(pre_int, sample != "unassigned")
+
+post_int <- integrated@meta.data %>%
+  dplyr::group_by(sample) %>%
+  dplyr::summarise(n_cells = n()) %>%
+  dplyr::mutate(stage = "Post-integration")
+
+post_sex_eryth <- obj@meta.data %>%
+  dplyr::group_by(sample) %>%
+  dplyr::summarise(n_cells = n()) %>%
+  dplyr::mutate(stage = "Post sex + erythroid")
+
+# Combine
+qc_counts <- bind_rows(pre_int, post_int, post_sex_eryth)
+
+
+# Order samples by pre-QC counts
+sample_order <- pre_int %>%
+  arrange(desc(n_cells)) %>%
+  pull(sample)
+
+# Order stages
+qc_counts$stage <- factor(qc_counts$stage, levels = c("Pre-integration", "Post-integration", "Post sex + erythroid"))
+write.table(qc_counts, file.path(outdir, "data/data_souirce_figS2e.tsv"), sep = "\t", row.names = F, quote = F)
+
+# Barplot
+p <- ggplot(qc_counts, aes(x = sample, y = n_cells, fill = stage)) +
+  geom_bar(stat = "identity", position = "dodge", color = "black", linewidth = 0.2) +
+  scale_fill_manual(values = c("Pre-integration" = "#19232E", "Post-integration" = "#5B7CA4", "Post sex + erythroid" = "#96ABC5")) +
+  plot_theme(font.size = 10, theme = "classic", leg.pos = c(0.2,0.85), x.angle = 45) +
+  labs(x = "", y = "Number of cells", fill = "QC stage") 
+p
+savefig(p, filename = file.path(outdir, "plots/figS2h") ,  width = 4.5, height = 3)
+
+```
+
+
+# Session Info
+
+```{r session_info}
+utils::capture.output(devtools::session_info())
+```
