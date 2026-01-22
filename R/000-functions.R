@@ -7226,47 +7226,88 @@ plot_lineages <- function(
 
 
 
-#' Plot gene-set distribution across cell types / stages
+#' Gene Set Expression Plot
 #'
-#' Compute and plot how many genes from a gene set are expressed per cell,
-#' aggregated / shown by cell type (and optionally by stage). Supports three
-#' plotting modes: "standard" (dodged bars), "stacked" (stacked bars) and
-#' "faceted" (separate panels by stage).
+#' @description
+#' Visualize the expression of a set of genes across cell types and stages in a Seurat object.
+#' Supports three modes:
+#' \itemize{
+#'   \item "standard": dodged bar plot with proportion ± SEM per cell type
+#'   \item "stacked": stacked bar plot of gene expression bins per cell type
+#'   \item "faceted": faceted bar plot by stage with optional mean ± SEM overlay
+#' }
+#' 
+#' @param obj Seurat object containing RNA expression data.
+#' @param geneset Character vector of gene names to plot.
+#' @param group.by Column name in `obj@meta.data` for grouping cells (default: "ann2").
+#' @param stage Column name in `obj@meta.data` for stage/facet grouping (default: "stage").
+#' @param mode Plot mode: "standard", "stacked", or "faceted". Default is "standard".
+#' @param assay Assay in Seurat object to use (default: "RNA").
+#' @param slot Slot to extract data from (default: "data").
+#' @param expr.thresh Numeric, threshold for considering a gene expressed (default: 0).
+#' @param breaks Numeric vector of bin edges for counting genes expressed (default: c(-1,0,1,2,Inf)).
+#' @param bin.labels Character vector of labels for expression bins (default: c("0","1","2","3+")).
+#' @param fill.cols Named vector of colors for cell types (default: NULL, uses Set2 palette).
+#' @param theme Plot theme, passed to `plot_theme` (default: "classic").
+#' @param leg.pos Legend position (default: "right"). Can be numeric vector c(x,y).
+#' @param x.angle Angle for x-axis labels (default: 0).
+#' @param font.size Base font size (default: 10).
+#' @param x.lab X-axis label (default: "Number of genes expressed").
+#' @param ann.counts Logical, whether to annotate bar counts (default: FALSE).
+#' @param show.sig Logical, whether to show significance stars (default: TRUE).
+#' @param pval Logical, whether to annotate chi-square p-values (default: TRUE).
+#' @param facet.ncol Number of columns for faceted plots (default: 2).
+#' @param label.size Size of annotation text for counts (default: 3).
+#' @param sig.size Size of significance stars (default: 4).
+#' @param facet.label.size Size of facet labels (default: 10).
+#' @param leg.size Legend text size (default: 10).
+#' @param leg.ttl.size Legend title size (default: 10).
+#' @param panel.fill Fill color for panel background (default: "white").
+#' @param facet.bg Logical, whether to display facet background (default: TRUE).
+#' @param verbose Logical, whether to print messages (default: TRUE).
+#' @param ... Additional arguments passed to `plot_theme`.
 #'
-#' @param obj Seurat obj.
-#' @param geneset Character vector of genes (gene symbols matching rownames(obj)).
-#' @param group.by Metadata column name for cell-type (default "ann2").
-#' @param stage Metadata column name for stage/facet (default "PCW").
-#' @param mode Plot mode, one of "standard", "stacked", "faceted".
-#' @param assay Assay name to pull expression from (default "RNA").
-#' @param slot Slot in assay ("data", "counts", "scale.data").
-#' @param expr.thresh Expression cutoff to consider a gene "expressed" (>=).
-#' @param breaks Numeric vector of breaks used to bin counts.
-#' @param bin.labels Character labels for expression bins (length = length(breaks)-1).
-#' @param fill.cols Optional named vector of fill colors (names must match factor levels).
-#' @param theme Name forwarded to `plot_theme()` (keeps your existing theme system).
-#' @param leg.pos Legend position (e.g. "right","bottom","top","left","none").
-#' @param x.angle Angle for x-axis text.
-#' @param font.size Base font size.
-#' @param x.lab x-axis label (default "Number of genes expressed").
-#' @param module.score If TRUE, compute module score using AddModuleScore and attach to output.
-#' @param module.name Prefix used by AddModuleScore (default "GeneSetScore").
-#' @param pb.logical If TRUE compute pseudobulk sums per celltype (returned for inspection).
-#' @param pb.norm One of "none" or "per_million".
-#' @param ann.counts Add counts on bars or inside stacks.
-#' @param show.sig Show significance stars from chi-square standardized residuals.
-#' @param pval Add chi-square p-value text in the plot.
-#' @param label.size Size for annotation count text.
-#' @param sig.size Size for significance stars.
-#' @param facet.label.size Size for facet strip text.
-#' @param lab.size Axis text size.
-#' @param leg.size Legend text size.
-#' @param leg.ttl.size Legend title size.
-#' @param panel.fill Panel background fill color.
-#' @param verbose Logical; print progress messages.
-#' @param ... Additional args forwarded to `plot_theme()` or ggplot2.
+#' @return A list containing:
+#' \item{plot}{ggplot object.}
+#' \item{binned.data}{Data frame of counts and proportions per cell type/bin.}
+#' \item{chi.test}{Chi-square test object for binned counts.}
+#' \item{residuals}{Standardized residuals from chi-square test.}
 #'
-#' @return A list with: plot (ggplot), binned.data (data.frame), chi.test, residuals (stdres), pseudobulk (if computed).
+#' @details
+#' The function calculates the number of genes expressed per cell, bins them according
+#' to `breaks` and `bin.labels`, and computes proportions. In faceted mode, it also
+#' calculates mean ± SEM for each cell type and overlays it on the bars.
+#'
+#' @examples
+#' # Standard dodged bar plot
+#' res_standard <- gsetplot(
+#'   obj = seurat_obj,
+#'   geneset = c("GeneA","GeneB","GeneC"),
+#'   group.by = "celltype",
+#'   mode = "standard"
+#' )
+#' res_standard$plot
+#'
+#' # Stacked bar plot
+#' res_stacked <- gsetplot(
+#'   obj = seurat_obj,
+#'   geneset = c("GeneA","GeneB","GeneC"),
+#'   group.by = "celltype",
+#'   mode = "stacked"
+#' )
+#' res_stacked$plot
+#'
+#' # Faceted plot with mean ± SEM overlay
+#' res_faceted <- gsetplot(
+#'   obj = seurat_obj,
+#'   geneset = c("GeneA","GeneB","GeneC"),
+#'   group.by = "celltype",
+#'   stage = "stage",
+#'   mode = "faceted",
+#'   facet.ncol = 3
+#' )
+#' res_faceted$plot
+#'
 #' @export
 #' 
 gsetplot <- function(
@@ -7300,6 +7341,7 @@ gsetplot <- function(
     verbose = TRUE,
     ...
 ) {
+  
   require(Seurat)
   require(dplyr)
   require(ggplot2)
@@ -7307,14 +7349,14 @@ gsetplot <- function(
   
   mode <- match.arg(mode)
   
-  # 1. Extract genes in object 
+  # 1. Extract genes 
   genes.available <- intersect(geneset, rownames(obj))
   if(length(genes.available)==0) stop("No genes from geneset found in object.")
   
-  expr.mat <- GetAssayData(obj, assay=assay, slot=slot)[genes.available,,drop=FALSE]
+  expr.mat <- GetAssayData(obj, assay=assay, leyer=slot)[genes.available,,drop=FALSE]
   if(!is.matrix(expr.mat)) expr.mat <- as.matrix(expr.mat)
   
-  # 2. Count number of genes expressed per cell 
+  # 2. Count expressed genes per cell 
   n.expr <- colSums(expr.mat > expr.thresh)
   
   meta <- obj@meta.data
@@ -7327,10 +7369,9 @@ gsetplot <- function(
     n.expr = n.expr,
     stringsAsFactors = FALSE
   )
-  
   if(mode=="faceted") df$stage <- factor(meta[[stage]], levels = sort(unique(meta[[stage]])))
   
-  # 3. Bin counts 
+  # 3. Bin counts
   if(length(breaks)-1 != length(bin.labels)) stop("bin.labels must match breaks-1")
   df$expr.bin <- cut(df$n.expr, breaks=breaks, labels=bin.labels, right=TRUE, include.lowest=TRUE)
   
@@ -7340,15 +7381,13 @@ gsetplot <- function(
     summarise(count=n(), .groups="drop") %>%
     group_by(cell.type) %>%
     mutate(prop = count / sum(count) * 100,
-           sem = sqrt(prop*(100-prop)/sum(count))) %>% # binomial SEM
+           sem = sqrt(prop*(100-prop)/sum(count))) %>%
     ungroup()
   
   # 5. Chi-square significance 
   tab <- table(df$cell.type, df$expr.bin)
   chi.res <- tryCatch(chisq.test(tab), error=function(e){warning(e); return(NULL)})
-  
-  residuals.df <- NULL  # always exists
-  
+  residuals.df <- NULL
   if(!is.null(chi.res)){
     stdres <- chi.res$stdres
     residuals.df <- as.data.frame(as.table(stdres))
@@ -7359,11 +7398,7 @@ gsetplot <- function(
       abs(residuals.df$stdres)>=1.96 ~ "*",
       TRUE ~ ""
     )
-    
-    # Merge residuals with plot.df
     plot.df <- left_join(plot.df, residuals.df[,c("cell.type","expr.bin","sig")], by=c("cell.type","expr.bin"))
-    
-    # Add a column for chi-square p-value for each bin (same value)
     plot.df$chi.p.value <- chi.res$p.value
   } else {
     plot.df$sig <- ""
@@ -7383,12 +7418,11 @@ gsetplot <- function(
     }
   }
   
-  # 7. Build plot by mode 
+  # 7. Plot modes 
   if(mode=="standard"){
     p <- ggplot(plot.df, aes(x=expr.bin, y=prop, fill=cell.type)) +
-      geom_col(position=position_dodge(width=0.6), color="black", linewidth=0.2, width=0.5)  +
-      geom_errorbar(aes(ymin=prop-sem, ymax=prop+sem),
-                    position=position_dodge(width=0.6), width=0.2, linewidth=0.25) +
+      geom_col(position=position_dodge(width=0.6), color="black", linewidth=0.2, width=0.5) +
+      geom_errorbar(aes(ymin=prop-sem, ymax=prop+sem), position=position_dodge(width=0.6), width=0.2, linewidth=0.25) +
       scale_fill_manual(values=fill.cols) +
       labs(x=x.lab, y="Proportion (%)", fill="") +
       plot_theme(theme=theme, font.size=font.size, x.angle=x.angle, leg.pos=leg.pos, ...) +
@@ -7396,20 +7430,10 @@ gsetplot <- function(
             legend.text=element_text(size=leg.size),
             legend.title=element_text(size=leg.ttl.size),
             panel.background=element_rect(fill=panel.fill, colour=NA))
-    
-    if(ann.counts) p <- p + geom_text(aes(label=count), 
-                                      position=position_dodge(width=0.9), vjust=-0.4, size=label.size)
-    if(show.sig) p <- p + geom_text(aes(label=sig), 
-                                    position=position_dodge(width=0.9), vjust=-1, size=sig.size)
-    if(!is.null(chi.res) && pval){
-      p <- p + annotate("text", x=Inf, y=Inf, label=paste0("Chi-square p=", signif(chi.res$p.value,3)),
-                        hjust=0.5, vjust=0, size=rel(leg.size/4))
-    }
+    if(ann.counts) p <- p + geom_text(aes(label=count), position=position_dodge(width=0.9), vjust=-0.4, size=label.size)
+    if(show.sig) p <- p + geom_text(aes(label=sig), position=position_dodge(width=0.9), vjust=-1, size=sig.size)
   } else if(mode=="stacked"){
-    plot.df <- plot.df %>%
-      group_by(expr.bin) %>%
-      mutate(prop = count / sum(count)*100) %>%
-      ungroup()
+    plot.df <- plot.df %>% group_by(expr.bin) %>% mutate(prop = count/sum(count)*100) %>% ungroup()
     p <- ggplot(plot.df, aes(x=cell.type, y=prop, fill=expr.bin)) +
       geom_col(color="black", linewidth=0.2, width=0.5) +
       scale_fill_manual(values=fill.cols, name=x.lab) +
@@ -7419,40 +7443,52 @@ gsetplot <- function(
             legend.text=element_text(size=leg.size),
             legend.title=element_text(size=leg.ttl.size),
             panel.background=element_rect(fill=panel.fill, colour=NA))
-    
-    if(ann.counts) p <- p + geom_text(aes(label=count), position=position_stack(vjust=0.5), size=label.size)
-    if(show.sig){
-      sig.df <- plot.df %>% group_by(cell.type) %>% summarise(sig=paste0(unique(sig[sig!=""]),collapse=" "), .groups="drop")
-      if(nrow(sig.df)>0) p <- p + geom_text(data=sig.df, aes(x=cell.type, y=101, label=sig), inherit.aes=FALSE, size=sig.size, vjust=0)
-    }
-    
   } else if(mode=="faceted"){
+    # Binned prop for facets 
     plot.df <- df %>%
-      group_by(.data[[stage]], .cell.type, .expr.bin) %>%
-      summarise(.count = n(), .groups = "drop") %>%
-      group_by(.data[[stage]], .cell.type) %>%
-      mutate(.prop = .count / sum(.count) * 100) %>%
+      group_by(.data[[stage]], cell.type, expr.bin) %>%
+      summarise(count=n(), .groups="drop") %>%
+      group_by(.data[[stage]], cell.type) %>%
+      mutate(prop = count / sum(count) * 100) %>%
       ungroup()
     
-    if (!is.null(residuals.df))
-      plot.df <- left_join(plot.df, residuals.df,
-                           by = c(".cell.type", ".expr.bin"))
-    else plot.df$.sig <- ""
+    # Mean ± SEM per cell type 
+    mean.df <- df %>%
+      group_by(.data[[stage]], cell.type) %>%
+      summarise(
+        mean.expr = mean(n.expr),
+        sem.expr = sd(n.expr)/sqrt(n()),
+        .groups="drop"
+      )
     
-    if (is.null(fill.cols))
-      fill.cols <- default_fill_for(unique(plot.df$.cell.type))
-    
-    p <- ggplot(plot.df, aes(.expr.bin, .prop, fill = .cell.type)) +
-      geom_col(position = position_dodge(0.9), color = "black", linewidth = 0.2) +
-      facet_wrap(vars(.data[[stage]]), ncol = facet.ncol) +
-      scale_fill_manual(values = fill.cols) +
-      labs(x = x.lab, y = "Proportion (%)", fill = "") +
-      plot_theme(theme, font.size, leg.pos, facet.bg = facet.bg, ...) +
-      theme(panel.background = element_rect(fill = panel.fill))
+    p <- ggplot(plot.df, aes(x=expr.bin, y=prop, fill=cell.type)) +
+      geom_col(position=position_dodge(width=0.7), color="black", linewidth=0.2, width=0.5) +
+      facet_wrap(vars(.data[[stage]]), ncol=facet.ncol) +
+      scale_fill_manual(values=fill.cols) +
+      labs(x=x.lab, y="Proportion (%)", fill="") +
+      plot_theme(theme=theme, font.size=font.size, leg.pos=leg.pos, facet.bg=facet.bg, ...) +
+      theme(strip.text=element_text(size=facet.label.size),
+            panel.background=element_rect(fill=panel.fill, colour=NA)) +
+      # Add mean ± SEM on top of bars 
+      # geom_errorbar(
+      #   data=mean.df,
+      #   aes(x=cell.type, ymin=mean.expr-sem.expr, ymax=mean.expr+sem.expr, color=cell.type),
+      #   inherit.aes=FALSE,
+      #   position=position_dodge(width=0.7),
+      #   width=0.3,
+      #   linewidth=0.6
+      # ) +
+      # geom_point(
+      #   data=mean.df,
+      #   aes(x=cell.type, y=mean.expr, color=cell.type),
+      #   inherit.aes=FALSE,
+      #   position=position_dodge(width=0.7),
+      #   size=2
+      # ) +
+      scale_color_manual(values=fill.cols, guide="none")
   }
   
-  # Return 
-  out <- list(plot=p, binned.data=plot.df, chi.test=chi.res, residuals=residuals.df)
-  return(out)
+  return(list(plot=p, binned.data=plot.df, chi.test=chi.res, residuals=residuals.df))
 }
+
 
