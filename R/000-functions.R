@@ -2090,7 +2090,7 @@ add_bulk_mapping_to_seurat <- function(
 #'
 #' @examples
 #' \dontrun{
-#' res <- dominance_score(
+#' res <- domscore(
 #'   obj = object,
 #'   geneset = OR_genes,
 #'   group.by = "ann2",
@@ -2104,7 +2104,7 @@ add_bulk_mapping_to_seurat <- function(
 #'
 #' @export
 #' 
-dominance_score <- function(
+domscore <- function(
     obj,
     geneset = NULL,
     assay = "RNA",
