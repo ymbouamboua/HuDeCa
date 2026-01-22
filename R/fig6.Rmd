@@ -186,29 +186,21 @@ write.table(p$data, file = file.path(outdir, "data/data_fig6b.tsv"), sep = "\t",
 
 ```{r fig.width=6.5, fig.height=5}
 
-sub <- cellslice(obj,  group.by = "ann2",  use.harmony = T, preprocess = T,  
-                     harmony.group = "sample", min.dist = 1, spread = 0.5,
-                     idents = c("INP", "iOSN"))
-
+sub <- cellslice(obj,  group.by = "ann2",  use.harmony = T, preprocess = T, harmony.group = "sample", idents = c("INP", "iOSN"))
 cellmap(sub, group.by = "ann2")
 
 res <- gsetplot(
-  obj = sub,pairwise.groups = list("INP","iOSN"),
-  group.by = "ann2", 
-  stage = "stage",
+  obj = sub,
   geneset = ORs$Gene_name,
-  label.size = 2,
-  show.sig = T,
-  pval = F,
-  x.lab = "Olfactory recptors",
-  sig.size = 6, 
-  lab.size = 10,
-  leg.size = 10,
+  group.by = "ann2",
+  mode = "standard",
+  x.lab = "Olfactory receptors",
+  theme = "classic",
+  facet.bg = F,
+  panel.fill = "white",
   ann.counts = F,
-  leg.ttl.size = 10,
-  leg.pos = c(0.25, 0.9),
-  facet.label.size = 14,theme = "classic",font.size = 10,
-  fill.cols = c("INP" = "#4463D9", "iOSN" = "#C63F70")
+  fill.cols = c("INP" = "#4463D9", "iOSN" = "#C63F70"),
+  leg.pos = "right"
 )
 
 res$plot
