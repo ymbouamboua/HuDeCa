@@ -2135,7 +2135,7 @@ domscore <- function(
     stop("No genes from geneset found in Seurat object.")
   
   expr_mat <- as.matrix(
-    GetAssayData(obj, assay = assay, slot = slot)[
+    GetAssayData(obj, assay = assay, leyer = slot)[
       detected_genes, , drop = FALSE
     ]
   )
@@ -5624,7 +5624,7 @@ plot_tf_activity <- function(
 #'
 #' @return ggplot object
 #' @export
-plot_dominance_score <- function(
+plot_domscore <- function(
     df,
     mode = c("bins", "high_cells", "top_genes"),
     ident.col = "ident",
