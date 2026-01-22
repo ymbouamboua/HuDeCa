@@ -7384,10 +7384,23 @@ gsetplot <- function(
            sem = sqrt(prop*(100-prop)/sum(count))) %>%
     ungroup()
   
-  # 5. Chi-square significance 
+  # 5. Chi-square significance (per bin)
+  residuals.df <- NULL
+  
+  # Compute per-bin 2xN chi-square tests
+  bin_pvals <- sapply(levels(df$expr.bin), function(bin) {
+    tab_bin <- table(df$cell.type, df$expr.bin == bin) # in-bin vs not-in-bin
+    if(all(dim(tab_bin) == c(length(unique(df$cell.type)), 2))) {
+      test <- tryCatch(chisq.test(tab_bin), error=function(e) NULL)
+      if(!is.null(test)) return(test$p.value)
+    }
+    return(NA)
+  })
+  names(bin_pvals) <- levels(df$expr.bin)
+  
+  # Overall chi-square residuals (optional, for stars)
   tab <- table(df$cell.type, df$expr.bin)
   chi.res <- tryCatch(chisq.test(tab), error=function(e){warning(e); return(NULL)})
-  residuals.df <- NULL
   if(!is.null(chi.res)){
     stdres <- chi.res$stdres
     residuals.df <- as.data.frame(as.table(stdres))
@@ -7399,11 +7412,13 @@ gsetplot <- function(
       TRUE ~ ""
     )
     plot.df <- left_join(plot.df, residuals.df[,c("cell.type","expr.bin","sig")], by=c("cell.type","expr.bin"))
-    plot.df$chi.p.value <- chi.res$p.value
   } else {
     plot.df$sig <- ""
-    plot.df$chi.p.value <- NA
   }
+  
+  # Add per-bin p-value
+  plot.df$chi.p.value <- bin_pvals[as.character(plot.df$expr.bin)]
+  
   
   # 6. Default colors 
   if(is.null(fill.cols)){
@@ -7490,5 +7505,4 @@ gsetplot <- function(
   
   return(list(plot=p, binned.data=plot.df, chi.test=chi.res, residuals=residuals.df))
 }
-
 
