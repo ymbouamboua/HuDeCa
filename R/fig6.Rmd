@@ -183,9 +183,7 @@ write.table(p$data, file = file.path(outdir, "data/data_fig6b.tsv"), sep = "\t",
 
 ## Fig6c
 
-
 ```{r fig.width=6.5, fig.height=5}
-
 sub <- cellslice(obj,  group.by = "ann2",  use.harmony = T, preprocess = T, harmony.group = "sample", idents = c("INP", "iOSN"))
 cellmap(sub, group.by = "ann2")
 
@@ -208,6 +206,9 @@ savefig(fig = res$plot, filename = file.path(outdir, "plots/fig6c"), width = 4, 
 write.table(res$binned.data, file = file.path(outdir, "data/data_fig6c.tsv"), sep = "\t", row.names = F, quote = F)
 
 ```
+
+
+
 
 
 
@@ -284,7 +285,7 @@ sub <- cellslice(obj,  group.by = "ann2",  use.harmony = T,  harmony.group = "sa
 
 genes <- intersect(ORs$Gene_name, rownames(sub))
 
-res <- dominance_score(
+res <- domscore(
   obj = sub,
   geneset = genes,
   group.by = "ann2",
@@ -298,7 +299,7 @@ colors = c("INP"="#4463D9", "iOSN"= "#C63F70", "Others"= "gray")
 write.table(res$df, file.path(outdir, "data/source_data_dominance_score.tsv"), sep = "\t", row.names = F, quote = F)
 
 # Dominance bins
-p <- plot_dominance_score(res$df, mode = "bins", ident.col = "ident", colors = colors, font.size = 10, leg.pos = "none")
+p <- plot_domscore(res$df, mode = "bins", ident.col = "ident", colors = colors, font.size = 10, leg.pos = "none")
 p
 savefig(fig = p, filename = file.path(outdir, "plots/fig6h"), width = 2.2, height = 3)
 write.table(p@data, file.path(outdir, "data/data_fig6h.tsv"), sep = "\t", row.names = F, quote = F)
@@ -312,7 +313,7 @@ write.table(p@data, file.path(outdir, "data/data_fig6h.tsv"), sep = "\t", row.na
 ```{r  fig.width=2.2, fig.height=3}
 
 # High-dominance cells per stage
-p <- plot_dominance_score(res$df, mode = "high_cells", ident.col = "ident", stage.col = "stage", colors = colors, leg.dir = "vertical", leg.pos = c(0.2, 0.9))
+p <- plot_domscore(res$df, mode = "high_cells", ident.col = "ident", stage.col = "stage", colors = colors, leg.dir = "vertical", leg.pos = c(0.2, 0.9))
 p
 savefig(fig = p, filename = file.path(outdir, "plots/fig6i"), width = 2.2, height = 3)
 write.table(p@data, file.path(outdir, "data/data_fig6i.tsv"), sep = "\t", row.names = F, quote = F)
@@ -325,7 +326,7 @@ write.table(p@data, file.path(outdir, "data/data_fig6i.tsv"), sep = "\t", row.na
 
 ```{r}
 
-p <- plot_dominance_score(res$df, mode = "top_genes", top.n = 20, flip = F, x.angle = 90)
+p <- plot_domscore(res$df, mode = "top_genes", top.n = 20, flip = F, x.angle = 90)
 p
 savefig(fig = p, filename = file.path(outdir, "plots/fig6j"), width = 4, height = 3)
 write.table(p@data, file.path(outdir, "data/data_fig6j.tsv"), sep = "\t", row.names = F, quote = F)
