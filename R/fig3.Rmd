@@ -201,33 +201,37 @@ savefig(fig = eval(p5), filename = file.path(outdir, "plots/fig3g4"), width = 6,
 ```
 
 
-## Fig3H
+## Fig3h
 
 ```{r}
 
-# Prepare pseudotime data
+# 1. Prepare pseudotime data
 df <- as.data.frame(slingPseudotime(res$sds)) %>%
   tibble::rownames_to_column("Cell") %>%
   reshape2::melt(id.vars = "Cell", variable.name = "Lineage", value.name = "Pseudotime") %>%
   dplyr::mutate(stage = as.numeric(gsub("PCW", "", sub$stage[Cell]))) %>%
   dplyr::filter(!is.na(Pseudotime) & !is.na(stage)) %>%
-  dplyr::distinct(Cell, Lineage, .keep_all = TRUE) %>%   # <-- remove duplicated barcodes
+  dplyr::distinct(Cell, Lineage, .keep_all = TRUE) %>%
   dplyr::mutate(stage_label = factor(paste0("PCW", stage),
-                              levels = paste0("PCW", sort(unique(stage)))))
+                                     levels = paste0("PCW", sort(unique(stage)))))
 
-# Fit GAM 
+# 2. Rename lineages consistently
+lineage_map <- c("Lineage1"="Neuronal", "Lineage2"="Micovillar", "Lineage3"="Sustentacular")
+df$Lineage <- plyr::mapvalues(df$Lineage, names(lineage_map), lineage_map)
+
+# 3. Fit GAM per lineage
 gam_model <- mgcv::gam(Pseudotime ~ Lineage + s(stage, by = Lineage, k = 4), data = df)
 gam_pvals <- summary(gam_model)$s.table %>%
   as.data.frame() %>%
   tibble::rownames_to_column("Lineage") %>%
   dplyr::mutate(Lineage = gsub("s\\(stage\\):Lineage", "", Lineage),
-         fdr = p.adjust(`p-value`, method = "fdr"))
+                Lineage = plyr::mapvalues(Lineage, names(lineage_map), lineage_map),
+                fdr = p.adjust(`p-value`, method = "fdr"))
 
-# Minimum FDR per stage 
+# 4. Compute minimum FDR per stage for annotation
 pw_pvals <- df %>%
-  dplyr::group_by(stage_label) %>%
-  dplyr::summarise(pval_min = min(gam_pvals$fdr[match(Lineage, gam_pvals$Lineage)]),
-            .groups = "drop") %>%
+  group_by(stage_label) %>%
+  summarise(pval_min = min(gam_pvals$fdr[match(Lineage, gam_pvals$Lineage)]), .groups="drop") %>%
   dplyr::mutate(pval_label = case_when(
     pval_min < 0.001 ~ "***",
     pval_min < 0.01  ~ "**",
@@ -235,22 +239,30 @@ pw_pvals <- df %>%
     TRUE             ~ "ns"
   ))
 
-# Peak density positions 
+# 5. Compute peak density positions
 peak_positions <- df %>%
-  dplyr::group_by(stage_label, Lineage) %>%
-  dplyr::summarise(dens = list(density(Pseudotime)), .groups = "drop") %>%
-  dplyr::rowwise() %>%
-  dplyr::mutate(y_max = max(dens$y),
-         x_peak = dens$x[which.max(dens$y)]) %>%
-  dplyr::group_by(stage_label) %>%
-  dplyr::slice_max(y_max, n = 1) %>%  # highest peak per stage
-  dplyr::ungroup() %>%
-  dplyr::mutate(y_pos = y_max * 1.08)
+  group_by(stage_label, Lineage) %>%
+  summarise(dens = list(density(Pseudotime)), .groups = "drop") %>%
+  rowwise() %>%
+  mutate(
+    y_max = max(dens$y),
+    x_peak = dens$x[which.max(dens$y)]
+  ) %>%
+  group_by(stage_label) %>%
+  slice_max(y_max, n = 1) %>%  # highest peak per stage
+  ungroup() %>%
+  mutate(y_pos = y_max * 1.08)
 
-# Rename lineages 
-lineage_map <- c("Lineage1"="Neuronal", "Lineage2"="Micovillar", "Lineage3"="Sustentacular")
-df$Lineage <- plyr::mapvalues(df$Lineage, names(lineage_map), lineage_map)
-peak_positions$Lineage <- plyr::mapvalues(peak_positions$Lineage, names(lineage_map), lineage_map)
+# 6. Merge all into source_data
+source_data <- df %>%
+  left_join(gam_pvals %>% dplyr::select(Lineage, fdr), by = "Lineage") %>%
+  left_join(peak_positions %>% dplyr::select(stage_label, Lineage, x_peak, y_pos),
+            by = c("stage_label", "Lineage")) %>%
+  left_join(pw_pvals %>% dplyr::select(stage_label, pval_label), by = "stage_label")
+
+source_data <- source_data %>% group_by(Cell) %>% slice(1) %>% ungroup()
+table(duplicated(source_data$Cell))
+write.table(source_data, file.path(outdir, "data/data_fig3h.tsv"), sep = "\t", quote = F, row.names = F)
 
 # Prepare labels for plotting 
 plot_labels <- peak_positions %>%
@@ -258,7 +270,7 @@ plot_labels <- peak_positions %>%
 
 # Plot 
 p <- ggplot(df, aes(x = Pseudotime, color = Lineage)) +
-  geom_density(size = 1) +
+  geom_density(size = 0.5) +
   facet_wrap(~stage_label, nrow = 1) +
   scale_color_manual(values = c("Neuronal"="#E41A1C","Micovillar"="navy","Sustentacular"="#377EB8")) +
   plot_theme(theme="classic", font.size=10, leg.pos="bottom", leg.dir="horizontal", facet.bg=FALSE) +
@@ -268,16 +280,6 @@ p <- ggplot(df, aes(x = Pseudotime, color = Lineage)) +
 
 p
 savefig(fig = p, filename = file.path(outdir, "plots/fig3h"), width = 6, height = 3)
-
-source_data <- df %>%
-  dplyr::left_join(gam_pvals %>% dplyr::select(Lineage, fdr), by = "Lineage") %>%
-  dplyr::left_join(peak_positions %>% dplyr::select(stage_label, Lineage, x_peak, y_pos), 
-            by = c("stage_label", "Lineage")) %>%
-  dplyr::left_join(pw_pvals %>% dplyr::select(stage_label, pval_label), by = "stage_label")
-
-source_data <- source_data %>% group_by(Cell) %>% slice(1) %>% ungroup()
-table(duplicated(source_data$Cell))
-write.table(source_data, file.path(outdir, "data/data_fig3h.tsv"), sep = "\t", quote = F, row.names = F)
 
 ```
 
