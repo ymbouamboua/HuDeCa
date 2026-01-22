@@ -49,8 +49,7 @@ ORs <- readxl::read_excel(file.path(root, "data/proc/ORs/401_ORs.xlsx"))
 
 ```{r fig.width=8, fig.height=4}
 
-sub <- cellslice(obj,  group.by = "ann2",  use.harmony = T,  harmony.group = "sample", min.dist = 1, 
-                 spread = 0.5, idents = c("INP", "iOSN"), preprocess = T)
+sub <- cellslice(obj,  group.by = "ann2",  use.harmony = T,  harmony.group = "sample", idents = c("INP", "iOSN"), preprocess = T)
 
 # keep as factor with order
 sub@meta.data$stage <- factor(
@@ -61,22 +60,23 @@ sub@meta.data$stage <- factor(
 
 res <- gsetplot(
   obj = sub,
-  pval = F,show.sig = F,
   geneset = ORs$Gene_name,
-  group.by  = "ann2",
+  group.by = "ann2",
   stage = "stage",
-  mode = "faceted",facet.bg = FALSE,
+  mode = "faceted",
+  facet.ncol = 4,
   x.lab = "Olfactory receptors",
-  module.score = TRUE,
-  module.name = "ORscore", theme = "classic",facet.ncol = 4,
-  pb.logical = FALSE, panel.fill = "white",
-  ann.counts = F, leg.pos = c(0.90, 0.95),
-  fill.cols = c("INP" = "#4463D9", "iOSN" = "#C63F70")
+  panel.fill = "white",
+  facet.bg = FALSE,
+  ann.counts = FALSE,
+  fill.cols = c("INP" = "#4463D9", "iOSN" = "#C63F70"),
+  leg.pos = c(0.1, 0.95)
 )
 
+res$binned.data
 res$plot
-savefig(fig = res$plot, filename = file.path(outdir, "plots/figS9&"), width = 8, height = 4)
-write.table(res$plot@data, file = file.path(outdir, "data/data_figS9a.tsv"), sep = "\t", row.names = F, quote = F)
+savefig(fig = res$plot, filename = file.path(outdir, "plots/figS9a"), width = 8, height = 4)
+write.table(res$binned.data, file = file.path(outdir, "data/data_figS9a.tsv"), sep = "\t", row.names = F, quote = F)
 
 
 ```
@@ -85,8 +85,13 @@ write.table(res$plot@data, file = file.path(outdir, "data/data_figS9a.tsv"), sep
 # FigS9b
 
 ```{r fig.width=6, fig.height=7}
+
+sub <- cellslice(obj,  group.by = "ann2", idents = c("OHBC", "CycBasal", "MV", "SUS", "GBC", "INP", "iOSN"), use.harmony = T,  harmony.group = "sample", preprocess = T)
+genes <- intersect(ORs$Gene_name, rownames(sub))
+res <- domscore(obj = sub, geneset = genes, group.by = "ann2", add.meta = c("sample", "stage", "sex"), idents = c("INP", "iOSN"), bins = c(-Inf, 0.5, 1, 1.5, 2, Inf))
+
 # Top dominant genes faceted by stage
-p <- plot_dominance_score(res$df, mode = "top_genes", stage.col = "stage", ncol = 4, top.n = 20, font.size = 10, x.angle = 0)
+p <- plot_domscore(res$df, mode = "top_genes", stage.col = "stage", ncol = 4, top.n = 20, font.size = 10, x.angle = 0)
 p
 savefig(fig = p, filename = file.path(outdir, "plots/figS9b"), width = 6, height = 7)
 write.table(p@data, file.path(outdir, "data/data_figS9b.tsv"), sep = "\t", row.names = F, quote = F)
