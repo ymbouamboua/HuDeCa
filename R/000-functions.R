@@ -3532,7 +3532,7 @@ celldot <- function(object, features, group.by="seurat_clusters", th.cols="Reds"
 #' cellvio(sub, features = c("MEG3","TP63","HES6"),
 #'         group.by = "ann_level_2",
 #'         pt.size = 0.1, ncol = 3, pairwise = TRUE,
-#'         font.size = 10, show.pval = TRUE)
+#'         txtsize = 10, show.pval = TRUE)
 #' }
 #' @export
 #' 
