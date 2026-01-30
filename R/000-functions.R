@@ -3510,9 +3510,9 @@ celldot <- function(object, features, group.by="seurat_clusters", th.cols="Reds"
 #' @param med.size Size of median points if med = TRUE.
 #' @param pt.size Size of jittered points. Set to 0 to hide points.
 #' @param border.size Size of the violin border lines.
-#' @param font.size Base font size for titles and labels.
+#' @param txtsize Base font size for titles and labels.
 #' @param theme ggplot2 theme to use: "classic", "minimal", etc.
-#' @param x.angle Rotation angle of x-axis labels.
+#' @param x.ang Rotation angle of x-axis labels.
 #' @param leg.pos Position of legend: "none", "right", "left", etc.
 #' @param title Optional overall title for the patchwork plot.
 #' @param rm.subtitles Logical; if TRUE, removes individual subplot titles.
@@ -3552,9 +3552,9 @@ cellvio <- function(
     med.size = 1,
     pt.size = 0,
     border.size = 0.1,
-    theme = "classic",
+    style = "classic",
     leg.pos = "none",
-    x.angle = 45,
+    x.ang = 45,
     title = NULL,
     rm.subttl = FALSE,
     flip = FALSE,
@@ -3565,7 +3565,7 @@ cellvio <- function(
     show.pval = FALSE,
     pairwise = FALSE,
     pval.label = "p.signif",
-    font.size = 10,
+    txtsize = 10,
     ...
 ) {
   
@@ -3652,19 +3652,48 @@ cellvio <- function(
     #if (pt.size > 0) p <- p + geom_jitter(width = 0.1, size = pt.size, alpha = 0.6)
     
     # Add statistics
-    if (add.stats && show.pval && length(levels(df[[group.by]])) > 1) {
-      cmp <- if (pairwise) utils::combn(levels(df[[group.by]]), 2, simplify = FALSE) else NULL
-      stat_fun <- if (length(levels(df[[group.by]])) == 2) "wilcox.test" else "kruskal.test"
-      y_max <- max(df$value, na.rm = TRUE)
-      y_step <- (ymax %||% y_max) * 0.05
-      p <- p + ggpubr::stat_compare_means(
-        method = stat_fun,
-        comparisons = cmp,
-        label = pval.label,
-        hide.ns = FALSE,
-        label.y = y_max + seq(0, by = y_step, length.out = length(cmp))
-      )
-    }
+    
+    if (add.stats && show.pval) {
+      if (nlevels(df[[group.by]]) > 1) {
+
+        df$.grp <- df[[group.by]]
+        if (!is.null(split.by)) {
+          df$.grp <- interaction(df[[group.by]], obj@meta.data[[split.by]], drop = TRUE)
+        }
+
+        y_max <- max(df$value, na.rm = TRUE)
+        y_step <- (ymax %||% y_max) * 0.08
+
+        if (pairwise && nlevels(df$.grp) > 1) {
+
+          cmp <- utils::combn(levels(df$.grp), 2, simplify = FALSE)
+          stat_df <- ggpubr::compare_means(value ~ .grp, data = df, method = "wilcox.test", comparisons = cmp)
+          stat_df$y.position <- y_max + seq_len(nrow(stat_df)) * y_step
+
+          p <- p + ggpubr::stat_pvalue_manual(
+            stat_df,
+            label = pval.label,
+            y.position = "y.position",
+            tip.length = 0.02,
+            size = txtsize * 0.25
+          )
+
+        } else {
+
+          # Kruskal test if not pairwise
+          stat_df <- ggpubr::compare_means(value ~ .grp, data = df, method = "kruskal.test")
+          p <- p + annotate(
+            "text",
+            x = 1,
+            y = y_max + y_step,
+            label = paste0(signif(stat_df$p, 3)),
+            hjust = 0,
+            size = txtsize * 0.25
+          )
+
+        } 
+      } 
+    } 
     
     
     # Titles
@@ -3685,12 +3714,12 @@ cellvio <- function(
         
         layer <- p$layers[[i]]
         
-        # ---- Violin outline ----
+        # Violin outline 
         if (inherits(layer$geom, "GeomViolin")) {
           layer$aes_params$linewidth <- violin_lw
         }
         
-        # ---- Points (Seurat uses GeomPoint + position_jitterdodge) ----
+        # Points (Seurat uses GeomPoint + position_jitterdodge) 
         if (inherits(layer$geom, "GeomPoint")) {
           
           if (!is.null(point_size)) {
@@ -3717,7 +3746,7 @@ cellvio <- function(
     )
     
     # Theme & formatting
-    p <- p + plot_theme(theme = theme, font.size = font.size, x.angle = x.angle,
+    p <- p + plot_theme(style = style, txtsize = txtsize, x.ang = x.ang,
                         leg.pos = leg.pos, x.ttl = FALSE, ttl.pos = ttl.pos,...) +
       theme(
         plot.title = element_text(face = "bold.italic")
@@ -3774,8 +3803,8 @@ cellvio <- function(
   xlab <- if (is.null(xlab.global)) "" else xlab.global
   
   plt <- cowplot::ggdraw(combo) +
-    cowplot::draw_label(ylab, x = -0.01, y = 0.55, angle = 90, size = font.size) +
-    cowplot::draw_label(xlab, x = 0.5, y = 0.02, size = font.size) +
+    cowplot::draw_label(ylab, x = -0.01, y = 0.55, angle = 90, size = txtsize) +
+    cowplot::draw_label(xlab, x = 0.5, y = 0.02, size = txtsize) +
     theme(plot.margin = margin(15, 15, 15, 15))
   
   # Auto resize attributes
@@ -3787,7 +3816,6 @@ cellvio <- function(
   
   plt
 }
-
 
 
 #' Plot Unique Gene Counts Per Cell (Robust Version)
